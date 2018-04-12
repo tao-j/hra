@@ -18,7 +18,7 @@ def acc_func(pred):
     return scipy.stats.spearmanr(np.arange(len(pred)), pred)
 
 
-def train_func_torchy(data_pack, init_seed=1362, max_iter=500, lr=1e-3, opt_func=torch.optim.SGD, debug=False, algo='simple', verbose=False, beta_disturb=None):
+def train_func_torchy(data_pack, init_seed=1362, max_iter=500, lr=1e-3, opt_func=torch.optim.SGD, debug=False, algo='simple', verbose=False, beta_disturb=None, result_pack=None):
 
     data, n_items, n_judges, n_pairs, s_true, betas = data_pack
     eps_true = np.sqrt(betas)
@@ -43,6 +43,13 @@ def train_func_torchy(data_pack, init_seed=1362, max_iter=500, lr=1e-3, opt_func
     # average gradient manually 
     optimizer = opt_func(params, lr=lr/n_pairs)
 
+    data_cnt = {}
+    for i, j, k in data:
+        if (i, j, k) in data_cnt:
+            data_cnt[(i, j, k)] += 1
+        else:
+            data_cnt[(i, j, k)] = 1
+    
     p_list = []
     p_noreg_list = []
     s_list = []
@@ -56,11 +63,13 @@ def train_func_torchy(data_pack, init_seed=1362, max_iter=500, lr=1e-3, opt_func
 
         p = 0
         p_noreg = 0
-        for i, j, k in data:
+        
+        for item, cnt in data_cnt.items():
+            i, j, k = item
             if algo == 'simple':
-                p += -torch.log(torch.exp((s[j] - s[i])) + 1)
+                p += - cnt * torch.log(torch.exp((s[j] - s[i])) + 1)
             elif algo == 'individual':
-                p += -torch.log(torch.exp((s[j] - s[i]) /
+                p += - cnt * torch.log(torch.exp((s[j] - s[i]) /
                  eps[k] / eps[k]) + 1)
             # torch.tanh(eps[k]) / torch.tanh(eps[k])) + 1)
 
@@ -121,5 +130,8 @@ def train_func_torchy(data_pack, init_seed=1362, max_iter=500, lr=1e-3, opt_func
         acc = np.nan
     else:
         acc = acc_func(rank)
+    
+    if result_pack is not None:
+        result_pack.append([np.linalg.norm(res_s[rank]-s_true), np.linalg.norm(( (res_eps**2-eps_true**2)/eps_true**2))])
     
     return rank, acc
