@@ -25,7 +25,7 @@ def train_func_torchy(data_pack, init_seed=1362, max_iter=500, lr=1e-3, opt_func
 
     torch.manual_seed(init_seed)
     s = Variable(torch.randn(n_items).type(dtypeF), requires_grad=True)
-    s.data -= s.data[0]
+    s.data -= torch.min(s.data)
     s.data /= torch.sum(s.data)
     eps = Variable(torch.randn(n_judges).type(dtypeF), requires_grad=True)
     if beta_disturb:
@@ -57,6 +57,10 @@ def train_func_torchy(data_pack, init_seed=1362, max_iter=500, lr=1e-3, opt_func
         # TODO: minibatch training
         # np.random.shuffle(data)
   
+        
+#         if iter_num > 50:
+#             optimizer = torch.optim.Adam(params, lr=1e-2/n_pairs)
+
         if debug and verbose:
             print("iter ", iter_num, '\n s', s.data, 'eps', eps.data)
 #         s.data = s.data / torch.sum(s.data)
@@ -94,8 +98,8 @@ def train_func_torchy(data_pack, init_seed=1362, max_iter=500, lr=1e-3, opt_func
         optimizer.step()
         
         if debug and verbose:
-            print('shift by', s.data[0])
-        s.data -= s.data[0]
+            print('shift by', np.min(s.data.numpy()))
+        s.data -= torch.min(s.data)
         
         s_ratio = torch.sum(s.data)
         if debug and verbose:
@@ -112,9 +116,10 @@ def train_func_torchy(data_pack, init_seed=1362, max_iter=500, lr=1e-3, opt_func
     rank = np.argsort(res_s)
 
     if debug:
-        plt.plot(p_list)
+        plt.plot(p_list[1:])
+#         ax.set_yscale('log')
         plt.show()
-        plt.plot(s_list)
+        plt.plot(s_list[1:])
         plt.show()
         # plt.plot(p_noreg_list)
         # plt.show()
