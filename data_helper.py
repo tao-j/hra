@@ -21,7 +21,9 @@ def generate_data(data_seed=3838, n_items=10, n_judges=10, n_pairs=200, shrink_b
     elif beta_gen_func == 'power':
         betas = np.power(shrink_b, -1. * np.arange(1, 1+n_judges))
     elif beta_gen_func == 'x':
-        betas = np.ones(n_judges) * shrink_b
+        assert shrink_b < len(betas)
+        betas = [0.00001, 0.0001, 0.0002, 0.0005, 0.001, 0.005, 0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.1, 0.5, 1.0]
+        betas = np.ones(n_judges) * betas[shrink_b]
     print('ground truth beta', betas)
 
     # gumble distribution
@@ -48,8 +50,12 @@ def generate_data(data_seed=3838, n_items=10, n_judges=10, n_pairs=200, shrink_b
 
         data_img = np.zeros((n_items, n_items))
         for _ in range(n_pairs):
-            i = np.random.randint(0, len(s)) # try normal
-            j = np.random.randint(0, len(s))
+            # ensure that generate two different items for comparison
+            i = 0
+            j = 0
+            while i == j:
+                i = np.random.randint(0, len(s)) # try normal dist.
+                j = np.random.randint(0, len(s))
 
             s_i = s[i] + np.random.gumbel(-0.5772*beta_i, beta_i)
             s_j = s[j] + np.random.gumbel(-0.5772*beta_i, beta_i)
@@ -61,7 +67,7 @@ def generate_data(data_seed=3838, n_items=10, n_judges=10, n_pairs=200, shrink_b
                 data_img[j][i] += 1. # rgb
         total_img[2] += data_img
         judge_imgs.append(data_img)
-
+        
     judge_imgs.append(total_img.transpose(1, 2, 0))
     show_images(judge_imgs, cols=1)
     print(len(data), n_items, n_judges, n_pairs)
