@@ -1,4 +1,5 @@
 import numpy as np
+import time
 
 #from bokeh.plotting import *
 import matplotlib.pyplot as plt
@@ -9,20 +10,33 @@ from IPython import display
 
 import multiprocessing as mp
 
-def generate_data(data_seed=3838, n_items=10, n_judges=10, n_pairs=200, shrink_b=30, beta_gen_func='shrink'):
+def generate_data(data_seed=None, 
+                  n_items=10, n_judges=10, n_pairs=200,
+                  shrink_b=30, beta_gen_func='shrink',
+                  visualization=False):
+    
+    if not data_seed:
+        data_seed = int(time.time() * 10e7) % 2**32
     np.random.seed(data_seed)
+    
     s = np.sort(np.random.normal(loc=1.0, size=n_items))
     s -= s[0]
     s /= s.sum()
     print('ground truth s', s)
     # betas = np.random.beta(beta_a, beta_b, size=n_judges)
+    if beta_gen_func == 'manual':
+        assert len(shrink_b) == n_judges
+        betas = np.array(shrink_b)
     if beta_gen_func == 'shrink':
         betas = np.random.random(size=n_judges) / shrink_b
     elif beta_gen_func == 'power':
         betas = np.power(shrink_b, -1. * np.arange(1, 1+n_judges))
     elif beta_gen_func == 'x':
         assert shrink_b < len(betas)
-        betas = [0.00001, 0.0001, 0.0002, 0.0005, 0.001, 0.005, 0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.1, 0.5, 1.0]
+        betas = [0.00001, 0.0001, 0.0002, 0.0005,
+                 0.001, 0.005,
+                 0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09,
+                 0.1, 0.5, 1.0]
         betas = np.ones(n_judges) * betas[shrink_b]
     print('ground truth beta', betas)
 
@@ -47,7 +61,6 @@ def generate_data(data_seed=3838, n_items=10, n_judges=10, n_pairs=200, shrink_b
     total_img = np.zeros((3, n_items, n_items))
 
     for k, beta_i in enumerate(betas):
-
         data_img = np.zeros((n_items, n_items))
         for _ in range(n_pairs):
             # ensure that generate two different items for comparison
@@ -69,9 +82,12 @@ def generate_data(data_seed=3838, n_items=10, n_judges=10, n_pairs=200, shrink_b
         judge_imgs.append(data_img)
         
     judge_imgs.append(total_img.transpose(1, 2, 0))
-    show_images(judge_imgs, cols=1)
-    print(len(data), n_items, n_judges, n_pairs)
+    
+    if visualization:
+        show_images(judge_imgs, cols=1)
+        print(len(data), n_items, n_judges, n_pairs)
     return [data, n_items, n_judges, n_pairs, s, betas]
+
 
 def show_images(images, cols = 1, titles = None):
     """Display a list of images in a single figure with matplotlib.
@@ -98,27 +114,3 @@ def show_images(images, cols = 1, titles = None):
         a.set_title(title)
     fig.set_size_inches(np.array(fig.get_size_inches()) * n_images)
     plt.show()
-
-def async_train(fp, args_ls):
-    
-    def f(q, fp, args_l):
-        print(args_l[1])
-        res = fp(*args_l)
-        q.put(res)
-    result_err = []
-
-    q = mp.Queue()
-    ps = []
-    for args_l in args_ls:
-    #     rets = pool.apply_async(f, (q, np.arange(pid)))
-        p = mp.Process(target=f, args=(q, fp, args_l))
-        ps.append(p)
-        p.start()
-
-    for p in ps:
-        result_err.append(q.get())
-
-    for p in ps:
-        p.join()
-    
-    return result_err
