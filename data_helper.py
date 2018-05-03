@@ -8,7 +8,7 @@ import cv2
 import PIL
 from IPython import display
 
-import multiprocessing as mp
+from addict import Dict
 
 def generate_data(data_seed=None, 
                   n_items=10, n_judges=10, n_pairs=200,
@@ -23,21 +23,22 @@ def generate_data(data_seed=None,
     s -= s[0]
     s /= s.sum()
     print('ground truth s', s)
-    # betas = np.random.beta(beta_a, beta_b, size=n_judges)
     if beta_gen_func == 'manual':
         assert len(shrink_b) == n_judges
         betas = np.array(shrink_b)
     if beta_gen_func == 'shrink':
         betas = np.random.random(size=n_judges) / shrink_b
     elif beta_gen_func == 'power':
-        betas = np.power(shrink_b, -1. * np.arange(1, 1+n_judges))
-    elif beta_gen_func == 'x':
+        betas = np.power(shrink_b, -1. * np.arange(0, n_judges))
+    elif beta_gen_func == 'xi':
         assert shrink_b < len(betas)
         betas = [0.00001, 0.0001, 0.0002, 0.0005,
                  0.001, 0.005,
                  0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09,
                  0.1, 0.5, 1.0]
         betas = np.ones(n_judges) * betas[shrink_b]
+    elif beta_gen_func == 'beta':
+        betas = np.random.beta(shrink_b[0], shrink_b[1], size=n_judges)
     print('ground truth beta', betas)
 
     # gumble distribution
@@ -83,10 +84,17 @@ def generate_data(data_seed=None,
         
     judge_imgs.append(total_img.transpose(1, 2, 0))
     
+    data_pack = Dict()
+    data_pack.n_items = n_items
+    data_pack.n_judges = n_judges
+    data_pack.n_pairs = n_pairs
+    data_pack.s = s
+    data_pack.betas = betas    
     if visualization:
         show_images(judge_imgs, cols=1)
-        print(len(data), n_items, n_judges, n_pairs)
-    return [data, n_items, n_judges, n_pairs, s, betas]
+        print(data_pack, len(data))
+    data_pack.data = data
+    return data_pack
 
 
 def show_images(images, cols = 1, titles = None):

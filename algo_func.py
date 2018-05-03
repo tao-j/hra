@@ -8,6 +8,8 @@ from torch.autograd import Variable
 #from bokeh.plotting import *
 import matplotlib.pyplot as plt
 
+from addict import Dict
+
 # GPU
 # dtypeF = torch.cuda.FloatTensor
 # dtypeI = torch.cuda.LongTensor
@@ -21,9 +23,12 @@ def calc_transition(c):
 
     for i in range(m_size):
         for j in range(i + 1, m_size):
-            assert((c[i][j] + c[j][i]) != 0)
-            c[j][i] = c[j][i] / (c[i][j] + c[j][i])
-            c[i][j] = 1 - c[j][i]
+            if (c[i][j] + c[j][i]) != 0:
+                c[j][i] = c[j][i] / (c[i][j] + c[j][i])
+                c[i][j] = 1 - c[j][i]
+            else:
+                c[i][j] = 0.
+                c[j][i] = 0.
 
     outer_degree = (c > 0).sum(axis=1)
 
@@ -87,24 +92,30 @@ def calc_s_beta(data_mat):
 
 
 def train_func_torchy(data_pack, init_seed=None, init_method='random', ground_truth_disturb=None, 
-                      max_iter=500, lr=1e-3, lr_decay=True,
-                      opt_func=torch.optim.SGD, opt_stablizer='default', 
+                      override_beta=False, max_iter=500, lr=1e-3, lr_decay=True,
+                      opt=True, opt_func='SGD', opt_stablizer='default', 
                       debug=False, verbose=False, algo='simple', 
                       result_pack=None, ):
 
-    data, n_items, n_judges, n_pairs, s_true, betas = data_pack
+    data = data_pack.data
+    n_items = data_pack.n_items
+    n_pairs = data_pack.n_pairs
+    n_judges = data_pack.n_judges
+    s_true = data_pack.s
+    betas = data_pack.betas
     eps_true = np.sqrt(betas)
+    
+    if opt_func == 'SGD':
+        opt_func = torch.optim.SGD
+    elif opt_func == 'Adam':
+        opt_func = torch.optim.Adam
+    else:
+        assert(False, 'specificed optimization method is incorrect.')
 
     if not init_seed:
         init_seed = int(time.time() * 10e7) % 2**32
     torch.manual_seed(init_seed)
-    
-    s = Variable(torch.randn(n_items).type(dtypeF), requires_grad=True)
-    s.data -= torch.min(s.data)
-    s.data /= torch.sum(s.data)
-    eps = Variable(torch.randn(n_judges).type(dtypeF), requires_grad=True)
-    
-    
+
     data_cnt = {}
     data_mat = np.zeros((n_items, n_items, n_judges))
     for i, j, k in data:
@@ -115,15 +126,27 @@ def train_func_torchy(data_pack, init_seed=None, init_method='random', ground_tr
             data_cnt[(i, j, k)] = 1
 
     # --------------- initialization -----------------
+    # init randomly
+    s = Variable(torch.randn(n_items).type(dtypeF), requires_grad=True)
+    s.data -= torch.min(s.data)
+    s.data /= torch.sum(s.data)
+    eps = Variable(torch.randn(n_judges).type(dtypeF), requires_grad=True)
+    
     if init_method == 'spectral':
         sp_init, s_init, beta_init = calc_s_beta(data_mat)
-        s.data = torch.FloatTensor(s_init)
+        if algo == 'simple':
+            s.data = torch.FloatTensor(sp_init)
+        if algo == 'individual':
+            s.data = torch.FloatTensor(s_init)
+        if override_beta:
+            beta_init.np.random.random(n_judges)
         eps.data = torch.FloatTensor(np.sqrt(beta_init))
-        
-        print('spectral result', np.argsort(s_init))
-        print('reinitialize s', s.data.numpy(), s.data.numpy().sum())
-        print('reinitialize beta', eps.data.numpy()**2)
-        
+
+        if debug:
+            print('spectral result', np.argsort(s_init))
+            print('reinitialize s', s.data.numpy(), s.data.numpy().sum())
+            print('reinitialize beta', eps.data.numpy()**2)
+
     if init_method == 'ground_truth_disturb':
         s.data = torch.FloatTensor(s_true + np.random.normal(0, beta_disturb, size=n_items))
         eps.data = torch.FloatTensor(eps_true + np.random.normal(0, beta_disturb, size=n_judges))
@@ -131,22 +154,21 @@ def train_func_torchy(data_pack, init_seed=None, init_method='random', ground_tr
     if debug:
         print('initial: s, beta', s.data.cpu().numpy(), eps.data.cpu().numpy()**2)
 
-        
+
     if algo == 'simple':
         params = [s]
     elif algo == 'individual':
         params = [s, eps]
     
-    if algo == 'spectral':
-        res_s = s.data.cpu().numpy()    
-    else:
+    p_list = []
+    p_noreg_list = []
+    s_list = []
+    if opt:
         # average gradient manually 
         optimizer = opt_func(params, lr=lr/n_pairs)
         sched = torch.optim.lr_scheduler.StepLR(optimizer, 400)
         # --------------- training -----------------
-        p_list = []
-        p_noreg_list = []
-        s_list = []
+
         for iter_num in range(max_iter):
             # TODO: minibatch training
             # np.random.shuffle(data)
@@ -198,11 +220,12 @@ def train_func_torchy(data_pack, init_seed=None, init_method='random', ground_tr
                     print('scale by', 1. / s_ratio)
                 s.data = s.data / s_ratio
                 eps.data = eps.data / np.sqrt(s_ratio)
-
-            if opt_stablizer == 'decouple':
+            elif opt_stablizer == 'decouple':
                 pass
-
-            s_list.append(np.sum((s.data.numpy() - s_true)**2))
+            else:
+                assert(False, 'wrong optimization option')
+            
+            s_list.append(np.sum((s.data.cpu().numpy() - s_true)**2))
             if debug and verbose:
                 print('-------iter--------')
                 
@@ -217,26 +240,18 @@ def train_func_torchy(data_pack, init_seed=None, init_method='random', ground_tr
     
     # ----------- summary -------------
     res_s = s.data.cpu().numpy()
-    res_eps = eps.data.cpu().numpy()
+    res_beta = eps.data.cpu().numpy() ** 2
     rank = np.argsort(res_s)
 
     if algo == 'simple':
         print('predicted rank without beta', rank)
-        print('s', res_s[rank])
     elif algo == 'individual':
         print('predicted rank with beta', rank)
-        print('s', res_s[rank])
-        print('beta', res_eps**2)
     
-    if np.any(np.isnan(np.array(res_s))):
-        acc = np.nan
-    else:
-        acc = acc_func(rank)
-    
-    if result_pack is not None:
-        result_pack.append(
-            [np.linalg.norm(res_s[rank]-s_true),
-             np.linalg.norm(( (res_eps**2-eps_true**2)/eps_true**2))
-            ])
-    
-    return rank, acc
+    res_pack = Dict()
+    res_pack.res_s = res_s
+    res_pack.res_beta = res_beta
+    print(res_pack)
+    res_pack.p_list = np.array(p_list)
+    res_pack.s_list = np.array(s_list)
+    return res_pack
