@@ -10,12 +10,6 @@ import matplotlib.pyplot as plt
 
 from addict import Dict
 
-# GPU
-# dtypeF = torch.cuda.FloatTensor
-# dtypeI = torch.cuda.LongTensor
-dtypeF = torch.FloatTensor
-dtypeI = torch.LongTensor
-
 def calc_transition(c):
     import copy
     c = copy.deepcopy(c)
@@ -56,7 +50,7 @@ def stationary_distribution(d):
 def calc_s_beta(data_mat):
     
     # note the latter two dimension is also flipped
-    c = data_mat.transpose(2, 1, 0)
+    c = data_mat.transpose(0, 2, 1)
     
     # ------------ use all judge info to calc
     mixed = c.sum(axis=0)
@@ -64,7 +58,6 @@ def calc_s_beta(data_mat):
     sp = np.log(stationary_distribution(p))
 #     sp -= np.min(sdb)
 #     sp /= sdb.sum()
-    
     
     # ------------ use each judge to calc
     # e^(s/beta) = esdb
@@ -91,12 +84,17 @@ def calc_s_beta(data_mat):
     return sp, s, betas
 
 
-def train_func_torchy(data_pack, init_seed=None, init_method='random', ground_truth_disturb=None, 
+def train_func_torchy(data_pack, init_seed=None, init_method='random', ground_truth_disturb=1e-3, 
                       override_beta=False, max_iter=500, lr=1e-3, lr_decay=True,
-                      opt=True, opt_func='SGD', opt_stablizer='default', 
+                      opt=True, opt_func='SGD', opt_stablizer='default', opt_sparse=False,
                       debug=False, verbose=False, algo='simple', 
-                      result_pack=None, ):
-
+                      result_pack=None, GPU=True):
+    dtype = torch.float
+    if GPU:
+        device = torch.device('cuda')
+    else:
+        device = torch.device('cpu')
+        
     data = data_pack.data
     n_items = data_pack.n_items
     n_pairs = data_pack.n_pairs
@@ -117,44 +115,43 @@ def train_func_torchy(data_pack, init_seed=None, init_method='random', ground_tr
     torch.manual_seed(init_seed)
 
     data_cnt = {}
-    data_mat = np.zeros((n_items, n_items, n_judges))
+    data_mat = np.zeros((n_judges, n_items, n_items))
     for i, j, k in data:
-        data_mat[i][j][k] += 1
+        data_mat[k][i][j] += 1
         if (i, j, k) in data_cnt:
             data_cnt[(i, j, k)] += 1
         else:
             data_cnt[(i, j, k)] = 1
 
     # --------------- initialization -----------------
-    # init randomly
-    s = Variable(torch.randn(n_items).type(dtypeF), requires_grad=True)
-    s.data -= torch.min(s.data)
-    s.data /= torch.sum(s.data)
-    eps = Variable(torch.randn(n_judges).type(dtypeF), requires_grad=True)
+    if init_method == 'random':
+        s_init = np.random.random(n_items)
+        s_init -= np.min(s_init)
+        s_init /= np.sum(s_init)
+        beta_init = np.random.random(n_judges) * 0.05
     
     if init_method == 'spectral':
-        sp_init, s_init, beta_init = calc_s_beta(data_mat)
+        s_init_tout, s_init_individual, beta_init = calc_s_beta(data_mat)
         if algo == 'simple':
-            s.data = torch.FloatTensor(sp_init)
+            s_init = s_init_tout
         if algo == 'individual':
-            s.data = torch.FloatTensor(s_init)
+            s_init = s_init_individual
         if override_beta:
-            beta_init.np.random.random(n_judges)
-        eps.data = torch.FloatTensor(np.sqrt(beta_init))
-
-        if debug:
-            print('spectral result', np.argsort(s_init))
-            print('reinitialize s', s.data.numpy(), s.data.numpy().sum())
-            print('reinitialize beta', eps.data.numpy()**2)
-
+            beta_init = np.random.random(n_judges) * 0.05
+        
     if init_method == 'ground_truth_disturb':
-        s.data = torch.FloatTensor(s_true + np.random.normal(0, beta_disturb, size=n_items))
-        eps.data = torch.FloatTensor(eps_true + np.random.normal(0, beta_disturb, size=n_judges))
-
+        s_init = s_true + np.random.normal(0, ground_truth_disturb, size=n_items)
+        beta_init = eps_true + np.random.normal(0, ground_truth_disturb, size=n_judges)
+    # TODO: die gracefully when no init_method matches
+        
+    s = torch.tensor(s_init, device=device, dtype=dtype, requires_grad=True)
+    eps = torch.tensor(np.sqrt(beta_init), device=device, dtype=dtype, requires_grad=True)
     if debug:
+        print('initial ranking result', np.argsort(s_init))
         print('initial: s, beta', s.data.cpu().numpy(), eps.data.cpu().numpy()**2)
 
 
+    # --------------- training / optimization -----------------
     if algo == 'simple':
         params = [s]
     elif algo == 'individual':
@@ -164,10 +161,11 @@ def train_func_torchy(data_pack, init_seed=None, init_method='random', ground_tr
     p_noreg_list = []
     s_list = []
     if opt:
-        # average gradient manually 
+        # NOTE: average gradient manually 
         optimizer = opt_func(params, lr=lr/n_pairs)
         sched = torch.optim.lr_scheduler.StepLR(optimizer, 400)
-        # --------------- training -----------------
+ 
+        data_mat = torch.tensor(data_mat, device=device, dtype=dtype)
 
         for iter_num in range(max_iter):
             # TODO: minibatch training
@@ -176,30 +174,41 @@ def train_func_torchy(data_pack, init_seed=None, init_method='random', ground_tr
             if lr_decay:
                 sched.step()
 
-            if debug and verbose:
-                print("iter ", iter_num, '\n s', s.data, 'eps', eps.data)
-#             s.data = s.data / torch.sum(s.data)
+            if debug:
+                print("iter ", iter_num, '\r')
+                if verbose:
+                    print('s', s.data, 'eps', eps.data)
 
-            p = 0
-            p_noreg = 0
-
-            for item, cnt in data_cnt.items():
-                i, j, k = item
+            if opt_sparse:
+                p = torch.tensor(0, dtype=dtype).to(device)
+                p_noreg = torch.tensor(0, dtype=dtype).to(device)
+                for item, cnt in data_cnt.items():
+                    i, j, k = item
+                    if algo == 'simple':
+                        p += - cnt * torch.log(torch.exp((s[j] - s[i])) + 1)
+                    elif algo == 'individual':
+                        p += - cnt * torch.log(torch.exp((s[j] - s[i]) /
+                         eps[k] / eps[k]) + 1)
+                    # torch.tanh(eps[k]) / torch.tanh(eps[k])) + 1)
+            else:
+                replicator = torch.tensor(torch.FloatTensor(np.ones([n_items, n_items])).to(device))
+                sr_m = replicator * s
+                sr_t = torch.transpose(sr_m, 1, 0)
+                sd_m = sr_m - sr_t
                 if algo == 'simple':
-                    p += - cnt * torch.log(torch.exp((s[j] - s[i])) + 1)
+                    p = - torch.sum(torch.sum(data_mat, dim=0) * torch.log(torch.exp(sd_m) + 1))
                 elif algo == 'individual':
-                    p += - cnt * torch.log(torch.exp((s[j] - s[i]) /
-                     eps[k] / eps[k]) + 1)
-                # torch.tanh(eps[k]) / torch.tanh(eps[k])) + 1)
-
-            p_noreg_list.append(np.array(p.data))
+                    ex = sd_m.view((1,) + sd_m.shape)
+                    ep = (eps * eps).view(eps.shape + (1, 1))
+                    lg = torch.log(torch.exp(ex / ep) + 1)
+                    p = - torch.sum(data_mat * lg)
 
             # ----- regularization
+            p_noreg_list.append(np.array(p.data))
 #             if algo == 'simple':
 #                 p += - s.pow(2).sum() / 1000.
 #             elif algo == 'individual':
 #                 p += - s.pow(2).sum() / 1000. - eps.pow(2).sum() / 1000.
-
             p_list.append(np.array(p.data))
 
             optimizer.zero_grad()
@@ -210,20 +219,20 @@ def train_func_torchy(data_pack, init_seed=None, init_method='random', ground_tr
                 print('eps.grad', eps.grad)
             optimizer.step()
 
+            # shift and scale after optimization
             if debug and verbose:
                 print('shift by', np.min(s.data.numpy()))
             s.data -= torch.min(s.data)
 
             if opt_stablizer == 'default':
                 s_ratio = torch.sum(s.data)
+#                 print('s_ratio', s_ratio.device, s_ratio.type())
                 if debug and verbose:
                     print('scale by', 1. / s_ratio)
                 s.data = s.data / s_ratio
-                eps.data = eps.data / np.sqrt(s_ratio)
+                eps.data = eps.data / s_ratio.pow(0.5)
             elif opt_stablizer == 'decouple':
                 pass
-            else:
-                assert(False, 'wrong optimization option')
             
             s_list.append(np.sum((s.data.cpu().numpy() - s_true)**2))
             if debug and verbose:
@@ -244,9 +253,9 @@ def train_func_torchy(data_pack, init_seed=None, init_method='random', ground_tr
     rank = np.argsort(res_s)
 
     if algo == 'simple':
-        print('predicted rank without beta', rank)
+        print('predicted rank btl', rank)
     elif algo == 'individual':
-        print('predicted rank with beta', rank)
+        print('predicted rank gbtl', rank)
     
     res_pack = Dict()
     res_pack.res_s = res_s
