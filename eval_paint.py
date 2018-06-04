@@ -28,6 +28,70 @@ def acc_func(pred, src=None):
         src = np.arange(len(pred))
     return scipy.stats.spearmanr(pred, src)[0]
 
+
+def run(data_name, algo_name, ds):
+    dn = data_name.split('-')
+
+    if dn[0] == 'po':
+        bgf = 'power'
+        sb = float(dn[1][1:])
+    if dn[0] == 'be':
+        bgf = 'beta'
+        sb = list(map(float, dn[1][1:].split(',')))
+    if dn[0] == 'rd':
+        bgf = 'shrink'
+        sb = float(dn[1][1:])
+    if dn[0] == 'ne':
+        bgf = 'negative'
+        sb = float(dn[1][1:])
+    if dn[0] == 'ma':
+        bgf = 'manual'
+        sb = list(map(float, dn[1][1:].split(',')))
+    nj = int(dn[2][1:])
+    ni = int(dn[3][1:])
+    np = int(dn[4][1:])
+    data_kwarg = {
+        'data_seed': ds,
+        'shrink_b': sb,
+        'beta_gen_func': bgf,
+        'n_items': ni,
+        'n_judges': nj,
+        'n_pairs': np,
+        'visualization': 0,
+    }
+#         print(data_kwarg)
+    data_pack = generate_data(**data_kwarg)
+
+    
+    an = algo_name.split('-')
+    if an[0] == 'gbtl':
+        algo = 'individual'
+    if an[0] == 'btl':
+        algo = 'simple'
+    
+    if 'spectral' in an[1]:
+        init = 'spectral'
+    else:
+        init = 'random'
+        
+    ob = 'random_b' in an[1]
+    opt = 'mle' in an[2]
+    
+    algo_kwarg = {
+        'init_seed': ds, 'init_method': init,
+        'override_beta': ob, 'max_iter': 800, 'lr': 1e-3, 'lr_decay': False,             
+        'opt': opt, 'opt_func': 'SGD', 'opt_stablizer': 'default', 'opt_sparse': False,
+        'debug': 0, 'verbose': 0, 'algo': algo, 
+    }
+#         print(algo_kwarg)        
+    algo_kwarg['data_pack'] = data_pack
+    
+    res_pack = train_func_torchy(**algo_kwarg)
+
+    cb = {**data_kwarg, **algo_kwarg, **res_pack}
+    return cb
+
+
 def async_train(fp, args_ls):
     
     def f(q, fp, args_l):

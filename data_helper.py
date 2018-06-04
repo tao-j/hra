@@ -39,6 +39,10 @@ def generate_data(data_seed=None,
         betas = np.ones(n_judges) * betas[shrink_b]
     elif beta_gen_func == 'beta':
         betas = np.random.beta(shrink_b[0], shrink_b[1], size=n_judges)
+    elif beta_gen_func == 'negative':
+        n_positive = np.ceil(n_judges * 0.7)
+        n_negative = n_judges - n_positive
+        betas = np.array([shrink_b] * n_positive + [shrink_b] ** n_negative)
     print('ground truth beta', betas)
 
     # gumble distribution
