@@ -2,6 +2,9 @@ import multiprocessing as mp
 import numpy as np
 import scipy
 
+from algo_func import *
+from data_helper import *
+
 # https://gist.github.com/bwhite/3726239
 def err_func(pred):
     return np.abs(np.arange(len(pred)) - pred).mean()
@@ -64,13 +67,22 @@ def run(data_name, algo_name, ds):
 
     
     an = algo_name.split('-')
+    # algo_map = {
+    # TODO: make dict
+    # }
     if an[0] == 'gbtl':
         algo = 'individual'
     if an[0] == 'btl':
         algo = 'simple'
+    if an[0] == 'gbtlinv':
+        algo = 'inverse'
+    if an[0] == 'gbtlneg':
+        algo = 'negative'
     
     if 'spectral' in an[1]:
         init = 'spectral'
+    elif 'disturb' in an[1]:
+        init = 'ground_truth_disturb'
     else:
         init = 'random'
         
@@ -81,7 +93,7 @@ def run(data_name, algo_name, ds):
         'init_seed': ds, 'init_method': init,
         'override_beta': ob, 'max_iter': 800, 'lr': 1e-3, 'lr_decay': False,             
         'opt': opt, 'opt_func': 'SGD', 'opt_stablizer': 'default', 'opt_sparse': False,
-        'debug': 0, 'verbose': 0, 'algo': algo, 
+        'debug': 1, 'verbose': 0, 'algo': algo, 
     }
 #         print(algo_kwarg)        
     algo_kwarg['data_pack'] = data_pack

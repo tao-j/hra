@@ -12,14 +12,19 @@ from addict import Dict
 
 def generate_data(data_seed=None, 
                   n_items=10, n_judges=10, n_pairs=200,
-                  shrink_b=30, beta_gen_func='shrink',
+                  shrink_b=30, beta_gen_func='shrink', s_gen_func='spacing',
                   visualization=False):
     
     if not data_seed:
         data_seed = int(time.time() * 10e7) % 2**32
     np.random.seed(data_seed)
     
-    s = np.sort(np.random.normal(loc=1.0, size=n_items))
+    if s_gen_func == 'random':
+        s = np.sort(np.random.normal(loc=1.0, size=n_items))
+    elif s_gen_func == 'spacing':
+        po = np.arange(1., 2 * n_items + 1, 2.) - n_items
+        po = po / 2 / n_items
+        s = np.power(10, po)
     s -= s[0]
     s /= s.sum()
     print('ground truth s', s)
@@ -40,9 +45,9 @@ def generate_data(data_seed=None,
     elif beta_gen_func == 'beta':
         betas = np.random.beta(shrink_b[0], shrink_b[1], size=n_judges)
     elif beta_gen_func == 'negative':
-        n_positive = np.ceil(n_judges * 0.7)
+        n_positive = min(int(np.ceil(n_judges * 0.7)), n_judges - 1)
         n_negative = n_judges - n_positive
-        betas = np.array([shrink_b] * n_positive + [shrink_b] ** n_negative)
+        betas = np.array([shrink_b] * n_positive + [-shrink_b] * n_negative)
     print('ground truth beta', betas)
 
     # gumble distribution
@@ -75,8 +80,12 @@ def generate_data(data_seed=None,
                 i = np.random.randint(0, len(s)) # try normal dist.
                 j = np.random.randint(0, len(s))
 
-            s_i = s[i] + np.random.gumbel(-0.5772*beta_i, beta_i)
-            s_j = s[j] + np.random.gumbel(-0.5772*beta_i, beta_i)
+            if beta_i < 0:
+                s_j = s[i] + np.random.gumbel(-0.5772*beta_i, -beta_i)
+                s_i = s[j] + np.random.gumbel(-0.5772*beta_i, -beta_i)
+            else:
+                s_i = s[i] + np.random.gumbel(-0.5772*beta_i, beta_i)
+                s_j = s[j] + np.random.gumbel(-0.5772*beta_i, beta_i)
             if s_i > s_j:
                 data.append((i, j, k))
                 data_img[i][j] += 1. # rgb
@@ -93,7 +102,7 @@ def generate_data(data_seed=None,
     data_pack.n_judges = n_judges
     data_pack.n_pairs = n_pairs
     data_pack.s = s
-    data_pack.betas = betas    
+    data_pack.beta = betas
     if visualization:
         show_images(judge_imgs, cols=1)
         print(data_pack, len(data))
