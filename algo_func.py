@@ -51,6 +51,9 @@ def calc_s_beta(data_mat):
     
     # note the latter two dimension is also flipped
     c = data_mat.transpose(0, 2, 1)
+    # shape is n_judges n_items*n_items^T
+    n_judges = c.shape[0]
+    n_items = c.shape[1]
     
     # ------------ use all judge info to calc
     mixed = c.sum(axis=0)
@@ -66,7 +69,10 @@ def calc_s_beta(data_mat):
     betas = np.zeros(c.shape[0])
     betas[0] = 1
     
-    for c_i in range(c.shape[0]):
+    A = np.zeros((n_items*n_judges, n_items+n_judges))
+    b = np.ones((n_items*n_judges,)) * 1
+    
+    for c_i in range(n_judges):
         d = c[c_i]
         p = calc_transition(d)
         esdb = stationary_distribution(p)
@@ -76,15 +82,30 @@ def calc_s_beta(data_mat):
 #         sdb /= sdb.sum()
         sdb_mat[c_i] = sdb
         
+        for s_i in range(n_items):
+            A[n_items*c_i+s_i][s_i] = 1
+            A[n_items*c_i+s_i][n_items + c_i] = - sdb[s_i]
+        
         # TODO: any other ratio may work?
         betas[c_i] = np.abs(np.mean(sdb_mat[0] / sdb_mat[c_i]) + 1e-13) # * b_mat[0]
     
     s = np.mean((sdb_mat.T / betas).T, axis=0)
     
+    import scipy.sparse.linalg
+    import pandas as pd
+    print(pd.DataFrame(A))
+    x = scipy.sparse.linalg.lsqr(A, b, show=True)
+    print(x)
+    x = x[0]
+    for s_i in range(n_items):
+        s[s_i] = x[s_i]
+    for b_i in range(n_judges):
+        betas[b_i] = x[n_items+b_i]
+    
     return sp, s, betas
 
 
-def train_func_torchy(data_pack, init_seed=None, init_method='random', ground_truth_disturb=1e-3, 
+def train_func_torchy(data_pack, init_seed=None, init_method='random', ground_truth_disturb=0, 
                       override_beta=False, max_iter=500, lr=1e-3, lr_decay=True,
                       opt=True, opt_func='SGD', opt_stablizer='default', opt_sparse=False,
                       debug=False, verbose=False, algo='simple', 
@@ -228,7 +249,8 @@ def train_func_torchy(data_pack, init_seed=None, init_method='random', ground_tr
                     iv = inv.view(inv.shape + (1, 1))
                     lg = torch.log(torch.exp(ex * iv) + 1)
                     p = - torch.sum(data_mat * lg)
-
+            if iter_num == 0:
+                print('initial likelihood', p)
             # ----- regularization
             p_noreg_list.append(np.array(p.data))
 #             if algo == 'simple':
