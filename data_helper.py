@@ -1,12 +1,7 @@
 import numpy as np
 import time
 
-#from bokeh.plotting import *
 import matplotlib.pyplot as plt
-
-import cv2
-import PIL
-from IPython import display
 
 from addict import Dict
 
@@ -14,7 +9,7 @@ def generate_data(data_seed=None,
                   n_items=10, n_judges=10, n_pairs=200,
                   shrink_b=30, beta_gen_func='shrink', s_gen_func='spacing',
                   visualization=False):
-    
+
     if not data_seed:
         data_seed = int(time.time() * 10e7) % 2**32
     np.random.seed(data_seed)
@@ -28,6 +23,7 @@ def generate_data(data_seed=None,
     s -= s[0]
     s /= s.sum()
     print('ground truth s', s)
+
     if beta_gen_func == 'manual':
         assert len(shrink_b) == n_judges
         betas = np.array(shrink_b)
@@ -59,6 +55,7 @@ def generate_data(data_seed=None,
         mu = -0.5772*beta
         return 1. / beta * np.exp(-(x-mu)/beta - np.exp(-(x-mu)/beta) )
 
+    # plot pdf
     # ts = np.arange(-.618, .618, 0.01)
     # for beta_i in betas:
     #     ty = gb_pdf(ts, beta_i)

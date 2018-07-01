@@ -60,6 +60,94 @@ For unified optimization answer value are normalized.
 
 + For `gbtl-*`, after calculate $s$ for all judges, we assume $\beta_1 = 1$, the $\beta_k$ for each judge will be $\beta_k = 1 / \#items  *\sum{s_{1, i}/s_{k, i} }$. Because it is hard to analytically make solution for the $\beta$, this approximation is used.
 
+### Solving equations
+For `gbtl*` algorithms, we first solve for the stationary distribution $\mathbf{w}$ for each judge, let $w_{i,k}$ denote the estimation of $i$th item provided by judge $k$. Suppose there are $n$ items, and $m$ judges. The second equality sign holds because the summation of the stationary distribution is 1.
+
+$$\frac{e^{s_i/\beta_k}}{\sum_{i \in [m]}{e^{s_i/\beta_k}}} = \frac{w_{i,k}}{\sum_{i \in [m]}{w_{i,k}}} = w_{i,k}$$
+
+$$\frac{e^{s_i/\beta_k}/  w_{i,k}}{\sum_{i \in [m]}{e^{s_i/\beta_k}}}  = 1$$
+
+Multiply each side by the denominator (note the summation over $e^x$ should be non-zero. Let $u_{i, k} = e^{s_i/\beta_k}$ then we have:
+
+$${e^{s_i/\beta_k}/  w_{i,k}} = {\sum_{i \in [m]}{e^{s_i/\beta_k}}} $$
+$${u_{i,k}/  w_{i,k}} = \sum_{i \in [m]}{u_{i,k}} $$
+
+Let the subscripts start from $1$.
+
+There are $n$ such equation for $i \in [n]$.
+Construct the coeffficient matrix to be:
+```
+A=
+[[1-1/w_{1,k} 1.           1.          ....       1.         ]
+ [1.          1-1/w_{2,k}  1.          ....       1.         ]
+ [1.          1.           1-1/w_{3,k} ....       1.         ]
+ ....
+ [1.          1.           1.          1.         1-1/w_{n,k}]]
+
+b = [0., 0., 0., ...., 0.] 
+```
+Solve for $\mathbf{u}$, in $A\mathbf{u} = b$.
+
+
+Assume $s_1 = 0$, $u_{1,k} = 1$. Plug into the equation:
+
+```
+A'=
+[[1.           1.          ....       1.         ]
+ [1-1/w_{2,k}  1.          ....       1.         ]
+ [1.           1-1/w_{3,k} ....       1.         ]
+ ....
+ [1.           1.          1.         1-1/w_{n,k}]]
+
+b' = [1/w_{1,k}-1, -1., -1., ...., -1.] 
+```
+Solve for $\mathbf{u}'$, in $A'\mathbf{u}' = b'$.
+
+
+Let's make a toy sample, for a specific judge with $\beta = 1$, $\mathbf{s} = [0.7, 0.2,0.3,0.5]$, a simple calculation will give $\mathbf{w} = [0.32304109, 0.19593432, 0.21654092, 0.26448367]$
+
+the system $Ax = b$ will be overdetermined. Two paths to take: 
+
+1' directly solve the overdetemined system. $u' = A^{-1}b'
+```python
+s = np.array([0.7,0.2,0.3,0.5])
+print('s', s)
+beta = 1.
+w = np.exp(s/beta) / np.sum(np.exp(s/beta))
+print('w', w)
+A = np.ones(s.shape[0]-1) - np.diag(1. / w[1:])
+b = np.array([-1] * s.shape[0])
+b[0] -= 1. / w[0]
+print('b', b)
+A = np.vstack([np.ones((1, s.shape[0] -1)), A])
+print('A', A)
+u = np.matmul(np.matmul(np.linalg.inv(np.matmul(A.T, A)), A.T), b)
+print('u', u)
+print('\hat{s}', np.log(u))
+```
+```
+s [0.7 0.2 0.3 0.5]
+w [0.32304109 0.19593432 0.21654092 0.26448367]
+b [-4 -1 -1 -1]
+A [[ 1.          1.          1.        ]
+ [-4.103751    1.          1.        ]
+ [ 1.         -3.61806487  1.        ]
+ [ 1.          1.         -2.78095173]]
+u [-0.39888708 -0.47468659 -0.67596936]
+\hat{s} [nan nan nan]
+```
+
+2' remove first row of matrix A, and substitude all the $u_{0,k}$ in subsequent equations then we have $A'x = b'$ and where $b' = [-1 -1 -1 -1]$ since $u_{0, k} = 1$. The dependecies between $u_{i,k}, i \geq 2$ will hold. However there will be many bias between $u_{1, k}$ with other items.
+
+```
+A'=[ 0.86666667 1.         1.         1.        ]
+  1.         0.8        1.         1.        ]
+  1.         1.         0.73333333 1.        ]
+  1.         1.         1.         0.66666667]]
+b = [-1, -1, -1, -1]
+A'x = b'
+```
+
 ## Optimization
 
 + Calculate the gradient using likelihood function mentioned above. Update $s$ and $\beta$ simultaneously. It is also possible to do alternating update.
