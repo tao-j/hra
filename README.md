@@ -1,57 +1,76 @@
 ---
-title: Rank Aggregation
+title: Rank Aggregation from Pairwise Comparision
 ---
-
-`main.py` will load the configuration and save running result in when done. One can setup comment/uncomment for different configurations in main.py and invoke the script sequentially. They can be run simultaneously, the saving process will have a lock to prevent each process writing over existing data.
 
 # Algorithm
 
-Assume we have a series of items and each of them have a score conceptually. The score is denoted as $\mathbf{s}$ and sometimes called the utility of item, in some literature it is referred as $\mathbf{w}$ or $\pi$. In this document, we refer $w$ as $w=e^s$ and don't use $\pi$.
+Given a set of items and each of them have a score conceptually, which may or may not exist in reality. The score is denoted as $\mathbf{s}$ and sometimes called the utility of item. In some literature it is referred as $\mathbf{w}$ or $\pi$. In this document, we refer $w$ as $w=e^s$ and assume $\sum{\pi_i} = 1$, which is a normalized version of $w$.
 
 ## Models - Methods for calculating likelihood
 
-Let $c_{ji,k}$ be the numbers of times $i$ is preferred over item $j$ reported by judge $k$.
+Let $c_{ij,k}$ be the numbers of times $i$ is preferred over item $j$ reported by judge $k$. Note that $i \neq j$.
+
+In following methods, each kind of likelihood function corredponds to a model with various intentions. 
 
 ### btl
 `btl`: Simple BT-model
 
-$$\sum{c_{ji} * \log( {\exp{(s_j - s_i)} + 1}} )$$
+We assume each user have a random noise $\epsilon \sim Gumble(\mu, \beta)$ added to the conceptual score $s_i$ while looking at item $i$. So the probability of $s_i > s_j$ is actually $\Pr(s_i + \epsilon_i > s_j + \epsilon_j)$. Here, we assume $\beta = 1$. Detailed induction process omited here. The result is as follows.
+
+$$-\sum{c_{ij} \cdot \ln( {e^{s_j - s_i} + 1}} )$$
+
+Since the number of comparisons can vary case by case, the actual likelihood is normalized by of total number of comparisons.
+
+$$-(\sum{c_{ij}})^{-1} \sum{c_{ij} \cdot \ln( {e^{s_j - s_i} + 1}} )$$
 
 ### gbtl
-`gbtl`: Generalized BT-model, consider confidence of each judge
+`gbtl`: Generalized BT-model
+Since each judge can have different judgement abilities, by adjusting the $\beta$ parameter noise generation Gumble distribution, we can also estimate the quality of that judge.
 
-$$\sum{c_{ji,k} * \log({\exp{((s_j - s_i)/\beta_k)} + 1}})$$
+$$-(\sum{c_{ij, k}})^{-1} \sum{c_{ij,k} \cdot \ln({e^{\frac{s_j - s_i}{\beta_k}} + 1}})$$
 
-In order to cast the restriction that $\beta > 0$, in actually implementation $\beta = \epsilon^2$ is used, the formula becomes $\sum{c_{ji,k} * \log({\exp{((s_j - s_i)/\epsilon^2)} + 1}})$
-
-Note that the likehood can be affected by the number of pairs, so it is normalized by dividing the result by $\sum{c_{ji}}$.
+By definition, the Gumble distribution must have $\beta > 0$ . In order to cast the restriction that $\beta > 0$, in actual implementation $\beta = \epsilon^2$ is used, the formula becomes $-(\sum{c_{ij, k}})^{-1} \sum{c_{ij,k} \cdot \ln({e^{\frac{s_j - s_i}{\epsilon_k^2}} + 1}})$
 
 ### gbtl-negative
 
-`gbtl-negative`: The denominator part in `gbtl` can be negative.
+`gbtl-negative`: the restrcition $\beta > 0$ is lifted in `gbtl`.
+
+Suppose a judge have good knowlege of the items, however he tends to provide ratings at the opposite direction to his best knowledge. In such adversarial setting, the fomula is quite similar to previous case. Assume $\beta'_k  = - \beta_k < 0$
+
+$$-(\sum{c_{ij, k}})^{-1} \sum{c_{ij,k} \cdot \ln({e^{\frac{s_j - s_i}{-\beta_k}} + 1}})$$
+we can see that it is still calculating the probability of items i better than item j.
+
 Ideally, this algorithm can handle those adversarial judges which know that $s_i > s_j$ but cast a vote that $s_i < s_j$.
 
-$$\sum{c_{ji,k} * \log({\exp{((s_j - s_i)/\beta_k)} + 1}})$$
+$$-(\sum{c_{ij, k}})^{-1} \sum{c_{ij,k} \cdot \ln({e^{\frac{s_j - s_i}{\beta'_k}} + 1}})$$
 
-However, because if $\beta$ is near zero, it will be a perfect judge, when noisy data is seen, in order to compensate the likelihood, the $\beta$ tends to be larger and larger, and have no possible way to become an adversarial so that to have a negative value of $\beta$.
-
+When $\beta$ is near zero, it will correspond to a perfect judge. When noisy comparison is seen, in order to compensate the likelihood, the $\beta$ tends to be larger and larger. It would be very hard for the optimization algorithm which is a likelihood maximizer to produce gradient that to make the value of $\beta$ to become negative. For this knid of judge, when $\beta$ is positive and very small, it will have smaller likelihood than $\beta$ is positive and have larger value. However, when $\beta$ is negative and very small, it will also have larger likelihood. To overcome this next algorithm is used.
 
 ### gbtl-inverse
 
-`gbtl-inverse`: Let $inv_k = 1/\beta_k$ the denominator part in `gbtl-negative` is retreated as a multiplier for easy optimization. 
+`gbtl-inverse`: Let $\gamma_k = 1/\beta_k$ to replace the denominator part in `gbtl-negative` as a multiplier for easy optimization. 
 
-This is used to compensate the effect of previous method, so the good judge will have a very large $inv$, while bad judge can flip sign to become adversarial. However, this behavior is not observed in the experiments.
+This is used to compensate the effect of previous method, so the good judge will have a very large $\gamma_k$, while bad judge can flip sign to become adversarial while the gradient will always in the right direction to make the likelihood larger.
 
-$$\sum{c_{ji,k} * \log({\exp{((s_j - s_i)*inv_k)} + 1}})$$
+$$-(\sum{c_{ij, k}})^{-1} \sum{c_{ij,k} \cdot \ln({e^{(s_j - s_i) \cdot \gamma_k} + 1}})$$
 
 ## Initialization
-The spectral method described in "Rank Centrality" is used to provide a near estimate of the true utility.
 
-+ Count the number of times item $j$ is preferred over $i$ and form a matrix.
-+ Figure out the transition matrix, note there will be a self loop for each node.
-+ Compute the stationary distribution for the matrix treat it as $w$.
-+ Take log then get $s$.
+Instead of put initial value of each parameter randomly, the spectral method described in "Rank Centrality" is used to provide a near estimate of the true utility, so that the gradient descent algorithm may produce better result.
 
+### 1. Count Matrix and Probability Matrix
+Count the number of times item $i$ is preferred over $j$ and form a matrix of $c_{ij}$. Denote the matrix derived from all data regardless of distinction of judge as $C$, and for each judge the matrix is denoted as $C_k$.
+
+From these matrix, the ratio $p_{ij} = \frac{c_{ij}}{c_{ij}+c_{ji}}$ is actually an unbiased estimate of $\Pr(i > j)$. Assume $p_{ii} = 0$. We have a matrix of probability for the whole collection $P$ and for each judge $P_k$ is also available.
+
+### 2. Transition Matrix
+Figure out the transition matrix according to the given formula described in "Rank Centrality", note there will be a self loop for each node.
+
+### 3. Stationary Distribution
+Compute the stationary distribution for the matrix treat it as $w$.
+
+### 4. Post process
+Take log then get $s$.
 For unified optimization answer value are normalized.
 
 + $s$ is shifted to have minimum value to be 0. $\mathbf{s} = \mathbf{s} - \min{s_i}$.
@@ -60,7 +79,7 @@ For unified optimization answer value are normalized.
 
 + For `gbtl-*`, after calculate $s$ for all judges, we assume $\beta_1 = 1$, the $\beta_k$ for each judge will be $\beta_k = 1 / \#items  *\sum{s_{1, i}/s_{k, i} }$. Because it is hard to analytically make solution for the $\beta$, this approximation is used.
 
-### Solving equations
+### 5. Solving equations
 For `gbtl*` algorithms, we first solve for the stationary distribution $\mathbf{w}$ for each judge, let $w_{i,k}$ denote the estimation of $i$th item provided by judge $k$. Suppose there are $n$ items, and $m$ judges. The second equality sign holds because the summation of the stationary distribution is 1.
 
 $$\frac{e^{s_i/\beta_k}}{\sum_{i \in [m]}{e^{s_i/\beta_k}}} = \frac{w_{i,k}}{\sum_{i \in [m]}{w_{i,k}}} = w_{i,k}$$
@@ -159,6 +178,8 @@ Because in the likelihood function, only difference between $s$ matters, so ther
 
 
 # Code Implementation
+
+`main.py` will load the configuration and save running result in when done. One can setup comment/uncomment for different configurations in main.py and invoke the script sequentially. They can be run simultaneously, the saving process will have a lock to prevent each process writing over existing data.
 
 Currently, the source code reflect three generations of changes.
 
