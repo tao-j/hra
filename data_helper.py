@@ -19,9 +19,7 @@ def generate_data(data_seed=None,
     elif s_gen_func == 'spacing':
         po = np.arange(1., 2 * n_items + 1, 2.) - n_items
         po = po / 2 / n_items
-        s = np.power(10, po)
-    s -= s[0]
-    s /= s.sum()
+        s = np.log(np.power(10, po))
     print('ground truth s', s)
 
     if beta_gen_func == 'manual':
@@ -46,6 +44,9 @@ def generate_data(data_seed=None,
         betas = np.array([shrink_b] * n_positive + [-shrink_b] * n_negative)
     print('ground truth beta', betas)
 
+    s -= s[0]
+    s /= s.sum()
+    
     # gumble distribution
     def gb_cdf(x, beta):
         mu = -0.5772*beta
