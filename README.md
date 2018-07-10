@@ -630,3 +630,96 @@ data_name	algo_name	acc
 19	po-b5-j4-i100-p80000	gbtlneg-disturb-mle	0.9984
 17	po-b5-j4-i100-p80000	gbtlneg-spectral_all-mle	-0.4681
 ```
+
+To fix this, in addition to seperate transition matrix for each judge, a grand total transition matrix is added while performing the "Two step" initialization described above.
+
+
+```
+data_name	algo_name	acc
+5	be-b1,10-j8-i100-p800	btl-spectral-mle	0.8317
+6	be-b1,10-j8-i100-p800	gbtl-spectral_all-do	0.8269
+7	be-b1,10-j8-i100-p800	gbtl-spectral_all-mle	0.9044
+9	be-b1,10-j8-i100-p800	gbtlinv-spectral_all-mle	0.8342
+8	be-b1,10-j8-i100-p800	gbtlneg-spectral_all-mle	0.8304
+
+10	be-b1,10-j8-i100-p8000	btl-spectral-mle	0.9780
+11	be-b1,10-j8-i100-p8000	gbtl-spectral_all-do	0.9602
+12	be-b1,10-j8-i100-p8000	gbtl-spectral_all-mle	0.9657
+14	be-b1,10-j8-i100-p8000	gbtlinv-spectral_all-mle	0.5779
+13	be-b1,10-j8-i100-p8000	gbtlneg-spectral_all-mle	0.5779
+
+0	be-b5,100-j4-i15-p800	btl-spectral-mle	0.9923
+1	be-b5,100-j4-i15-p800	gbtl-spectral_all-do	0.9899
+2	be-b5,100-j4-i15-p800	gbtl-spectral_all-mle	0.9940
+4	be-b5,100-j4-i15-p800	gbtlinv-spectral_all-mle	0.9952
+3	be-b5,100-j4-i15-p800	gbtlneg-spectral_all-mle	0.9952
+```
+
+
+```
+0	po-b5-j4-i10-p800	btl-spectral-mle	1.0000
+1	po-b5-j4-i10-p800	gbtl-spectral_all-do	0.9899
+2	po-b5-j4-i10-p800	gbtl-spectral_all-mle	1.0000
+4	po-b5-j4-i10-p800	gbtlinv-spectral_all-mle	1.0000
+3	po-b5-j4-i10-p800	gbtlneg-spectral_all-mle	1.0000
+
+5	po-b5-j4-i100-p8000	btl-spectral-mle	0.9190
+6	po-b5-j4-i100-p8000	gbtl-spectral_all-do	0.9080
+7	po-b5-j4-i100-p8000	gbtl-spectral_all-mle	nan
+9	po-b5-j4-i100-p8000	gbtlinv-spectral_all-mle	-0.3160
+8	po-b5-j4-i100-p8000	gbtlneg-spectral_all-mle	-0.3190
+
+10	po-b5-j4-i100-p80000	btl-spectral-mle	0.9920
+11	po-b5-j4-i100-p80000	gbtl-spectral_all-do	0.9734
+12	po-b5-j4-i100-p80000	gbtl-spectral_all-mle	nan
+14	po-b5-j4-i100-p80000	gbtlinv-spectral_all-mle	-0.6623
+13	po-b5-j4-i100-p80000	gbtlneg-spectral_all-mle	-0.6625
+```
+
+For 3 good judge 1 adversarial judge
+
+```
+10	ne-b0.005-j4-i16-p12800	btl-spectral-mle	1.0000
+11	ne-b0.005-j4-i16-p12800	gbtl-spectral_all-do	0.9613
+12	ne-b0.005-j4-i16-p12800	gbtl-spectral_all-mle	nan
+14	ne-b0.005-j4-i16-p12800	gbtlinv-spectral_all-mle	-0.0132
+13	ne-b0.005-j4-i16-p12800	gbtlneg-spectral_all-mle	-0.0020
+
+5	ne-b0.005-j4-i16-p800	btl-spectral-mle	0.9824
+6	ne-b0.005-j4-i16-p800	gbtl-spectral_all-do	0.9926
+7	ne-b0.005-j4-i16-p800	gbtl-spectral_all-mle	nan
+9	ne-b0.005-j4-i16-p800	gbtlinv-spectral_all-mle	0.6637
+8	ne-b0.005-j4-i16-p800	gbtlneg-spectral_all-mle	0.9961
+
+0	ne-b0.005-j4-i4-p800	btl-spectral-mle	1.0000
+1	ne-b0.005-j4-i4-p800	gbtl-spectral_all-do	1.0000
+2	ne-b0.005-j4-i4-p800	gbtl-spectral_all-mle	nan
+4	ne-b0.005-j4-i4-p800	gbtlinv-spectral_all-mle	1.0000
+3	ne-b0.005-j4-i4-p800	gbtlneg-spectral_all-mle	1.0000
+
+20	ne-b0.01-j4-i64-p12800	btl-spectral-mle	0.9900
+21	ne-b0.01-j4-i64-p12800	gbtl-spectral_all-do	0.9966
+22	ne-b0.01-j4-i64-p12800	gbtl-spectral_all-mle	nan
+24	ne-b0.01-j4-i64-p12800	gbtlinv-spectral_all-mle	0.9967
+23	ne-b0.01-j4-i64-p12800	gbtlneg-spectral_all-mle	0.9967
+
+15	ne-b0.01-j4-i64-p800	btl-spectral-mle	0.8504
+16	ne-b0.01-j4-i64-p800	gbtl-spectral_all-do	0.9380
+17	ne-b0.01-j4-i64-p800	gbtl-spectral_all-mle	nan
+19	ne-b0.01-j4-i64-p800	gbtlinv-spectral_all-mle	0.9402
+18	ne-b0.01-j4-i64-p800	gbtlneg-spectral_all-mle	0.9402
+```
+
+More Settings using popular information
+```
+	data_name	algo_name	acc
+4	be-b10,100-j4-i100-p800	btl-spectral-do	0.2923
+5	be-b10,100-j4-i100-p800	gbtl-spectral_all-do	0.2494
+6	be-b10,100-j4-i100-p800	gbtl-spectral_all-mle	nan
+7	be-b10,100-j4-i100-p800	gbtlneg-spectral_all-mle	0.2509
+
+8	be-b3,20-j4-i100-p800	btl-spectral-do	0.4829
+9	be-b3,20-j4-i100-p800	gbtl-spectral_all-do	0.4599
+10	be-b3,20-j4-i100-p800	gbtl-spectral_all-mle	nan
+11	be-b3,20-j4-i100-p800	gbtlneg-spectral_all-mle	0.4655
+```
