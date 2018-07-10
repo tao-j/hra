@@ -12,13 +12,24 @@ import matplotlib.pyplot as plt
 
 from addict import Dict
 
+def calc_transition_ground(s_true, beta_true):
+    m_size = beta_true.shape[0]
+    n_size = s_true.shape[0]
+    c = np.zeros((m_size, n_size, n_size), dtype=np.float)
+    for k in range(m_size):
+        for i in range(n_size):
+            for j in range(n_size):
+                if i != j:
+                    c[k][i][j] = 1. / (1 + np.exp( (s_true[j] - s_true[i]) / beta_true[k]))
+    return c
+                    
 def calc_transition(c):
     import copy
     c = copy.deepcopy(c)
-    m_size = c.shape[0]
+    n_size = c.shape[0]
 
-    for i in range(m_size):
-        for j in range(i + 1, m_size):
+    for i in range(n_size):
+        for j in range(i + 1, n_size):
             if (c[i][j] + c[j][i]) != 0:
                 c[j][i] = c[j][i] / (c[i][j] + c[j][i])
                 c[i][j] = 1. - c[j][i]
@@ -30,7 +41,7 @@ def calc_transition(c):
 #     outer_degree = (c > 0).sum(axis=1)
     d = (c.T / (outer_degree + 1e-10)).T
     row_sum = d.sum(axis=1)
-    d = d + np.eye(m_size) * (1 - row_sum)
+    d = d + np.eye(n_size) * (1 - row_sum)
     return d
 
 
@@ -67,9 +78,12 @@ def calc_s_beta(data_mat, verbose=False):
     p = calc_transition(mixed)
     sp = np.log(stationary_distribution(p))
     # normalize s for easy comparison
-    sp -= np.min(sp)
-    sp /= sp.sum()
-    
+#     sp -= np.min(sp)
+#     sp /= sp.sum()
+
+# add popular 
+    c = np.concatenate([mixed[np.newaxis,:], c], axis=0)
+    n_judges += 1
     # ------------ use each judge to calc
     # e^(s/beta) = esdb = w (normalized) = u
     # s/beta = sdb = q
@@ -102,15 +116,17 @@ def calc_s_beta(data_mat, verbose=False):
 #             p[idx][idx] = np.nan
 #             print(p[idx])
 #             print(p[:][idx])
-
+        first_flag = True
         for wmin in np.sort(w):
             if wmin > 10e-10:
                 print('wmin', wmin)
                 break
-
-        w += wmin
-        w = w/w.sum()
-        print('w after', w)
+            first_flag = False
+        
+        if not first_flag:
+            w += wmin
+            w = w/w.sum()
+            print('w after', w)
         
         A = np.ones(n_items-1) - np.diag(1. / w[1:])        
         A = np.vstack([np.ones((1, s.shape[0] -1)), A])
@@ -211,8 +227,11 @@ def train_func_torchy(data_pack, init_seed=None, init_method='random', ground_tr
         beta_init = np.random.random(n_judges) * 0.05
         eps_init = np.random.random(n_judges) * 0.05
     
+    
+#     data_mat = calc_transition_ground(s_true, beta_true)
     if init_method == 'spectral':
         s_init_tout, s_init_individual, beta_init = calc_s_beta(data_mat, verbose=verbose)
+        beta_init = beta_init[1:]
         eps_init = np.sqrt(beta_init)
         if algo == 'simple':
             s_init = s_init_tout
@@ -230,7 +249,12 @@ def train_func_torchy(data_pack, init_seed=None, init_method='random', ground_tr
         s_init = s_true + np.random.normal(0, ground_truth_disturb, size=n_items)
         beta_init = beta_true + np.random.normal(0, ground_truth_disturb, size=n_judges)
         eps_init = eps_true + np.random.normal(0, ground_truth_disturb, size=n_judges)
-        lr = 1e-5
+        if override_beta:
+            beta_init = np.random.random(n_judges) * 0.05
+            eps_init = np.random.random(n_judges) * 0.05
+        else:
+            lr = 1e-5
+            
     # TODO: die gracefully when no init_method matches
         
     s = torch.tensor(s_init, device=device, dtype=dtype, requires_grad=True)
@@ -256,6 +280,7 @@ def train_func_torchy(data_pack, init_seed=None, init_method='random', ground_tr
     s_list = []
     if opt:
         # NOTE: average gradient manually 
+        print('lr', lr)
         optimizer = opt_func(params, lr=lr/n_pairs)
         sched = torch.optim.lr_scheduler.StepLR(optimizer, 1000)
 
@@ -349,8 +374,19 @@ def train_func_torchy(data_pack, init_seed=None, init_method='random', ground_tr
                 beta.data = beta.data / s_ratio
                 inv.data = inv.data * s_ratio
             elif opt_stablizer == 'decouple':
-                pass
-            
+                if algo == 'individual':
+                    s_ratio = np.sqrt(1. / eps.data.cpu().numpy()[0])
+                    eps.data = eps.data * s_ratio
+                    s.data = s.data * s_ratio
+                elif algo == 'negative':
+                    s_ratio = 1. / beta.data.cpu().numpy()[0]
+                    beta.data = beta.data * s_ratio
+                    s.data = s.data * s_ratio
+                elif algo == 'inverse':
+                    s_ratio = 1. / inv.data.cpu().numpy()[0]
+                    inv.data = inv.data * s_ratio
+                    s.data = s.data / s_ratio
+                
             s_list.append(np.sum((s.data.cpu().numpy() - s_true)**2))
             if debug and verbose:
                 print('-------iter--------')

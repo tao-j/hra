@@ -46,6 +46,9 @@ def generate_data(data_seed=None,
 
     s -= s[0]
     s /= s.sum()
+    s_ratio = 1. / betas[0]
+    s = s * s_ratio
+    betas = betas * s_ratio
     
     # gumble distribution
     def gb_cdf(x, beta):

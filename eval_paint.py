@@ -79,8 +79,8 @@ def run_algo(data_pack, data_kwarg, algo_name, seed):
     
     algo_kwarg = {
         'init_seed': seed, 'init_method': init,
-        'override_beta': ob, 'max_iter': 2000, 'lr': 1e-4, 'lr_decay': False,
-        'opt': opt, 'opt_func': 'SGD', 'opt_stablizer': 'default', 'opt_sparse': False,
+        'override_beta': ob, 'max_iter': 4000, 'lr': 1e-3, 'lr_decay': False,
+        'opt': opt, 'opt_func': 'SGD', 'opt_stablizer': 'decouple', 'opt_sparse': False,
         'debug': 1, 'verbose': 0, 'algo': algo,
     }
     algo_kwarg['data_pack'] = data_pack
