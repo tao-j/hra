@@ -76,11 +76,16 @@ def run_algo(data_pack, data_kwarg, algo_name, seed):
         
     ob = 'random_b' in an[1]
     opt = 'mle' in an[2]
+    ot = 'gt^transition' in an[1]
+    fs = 'fix^s' in an[1]
+
+    if ot:
+        print("\x1b[31muse gt_transition\x1b[0m")
     
     algo_kwarg = {
         'init_seed': seed, 'init_method': init,
-        'override_beta': ob, 'max_iter': 4000, 'lr': 1e-3, 'lr_decay': False,
-        'opt': opt, 'opt_func': 'SGD', 'opt_stablizer': 'decouple', 'opt_sparse': False,
+        'override_beta': ob, 'gt_transition': ot, 'max_iter': 4000, 'lr': 1e-3, 'lr_decay': False,
+        'opt': opt, 'opt_func': 'SGD', 'opt_stablizer': 'decouple', 'opt_sparse': False, 'fix_s': fs,
         'debug': 1, 'verbose': 0, 'algo': algo,
     }
     algo_kwarg['data_pack'] = data_pack

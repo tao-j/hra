@@ -49,15 +49,16 @@ def generate_data(data_seed=None,
     s_ratio = 1. / betas[0]
     s = s * s_ratio
     betas = betas * s_ratio
+    print('after adjustment ', '\ns', s, '\nbeta', betas)
     
     # gumble distribution
-    def gb_cdf(x, beta):
-        mu = -0.5772*beta
-        return np.exp(-np.exp(-(x-mu)/beta) )
-
-    def gb_pdf(x, beta):
-        mu = -0.5772*beta
-        return 1. / beta * np.exp(-(x-mu)/beta - np.exp(-(x-mu)/beta) )
+    # def gb_cdf(x, beta):
+    #     mu = -0.5772*beta
+    #     return np.exp(-np.exp(-(x-mu)/beta) )
+    #
+    # def gb_pdf(x, beta):
+    #     mu = -0.5772*beta
+    #     return 1. / beta * np.exp(-(x-mu)/beta - np.exp(-(x-mu)/beta) )
 
     # plot pdf
     # ts = np.arange(-.618, .618, 0.01)
@@ -69,7 +70,7 @@ def generate_data(data_seed=None,
 
     data = []
     judge_imgs = []
-    total_img = np.zeros((3, n_items, n_items))
+    total_img = np.zeros((3, n_items, n_items), dtype=np.float)
 
     for k, beta_i in enumerate(betas):
         data_img = np.zeros((n_items, n_items))
@@ -89,14 +90,14 @@ def generate_data(data_seed=None,
                 s_j = s[j] + np.random.gumbel(-0.5772*beta_i, beta_i)
             if s_i > s_j:
                 data.append((i, j, k))
-                data_img[i][j] += 1. # rgb
+                data_img[j][i] += 1. # rgb
             else:
                 data.append((j, i, k))
-                data_img[j][i] += 1. # rgb
+                data_img[i][j] += 1. # rgb
         total_img[2] += data_img
-        judge_imgs.append(data_img)
+        judge_imgs.append(data_img / np.max(np.max(data_img)))
         
-    judge_imgs.append(total_img.transpose(1, 2, 0))
+    judge_imgs.append(total_img.transpose(1, 2, 0) / np.max(np.max(total_img)))
     
     data_pack = Dict()
     data_pack.n_items = n_items

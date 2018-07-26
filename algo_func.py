@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 
 from addict import Dict
 
+
 def calc_transition_ground(s_true, beta_true):
     m_size = beta_true.shape[0]
     n_size = s_true.shape[0]
@@ -20,14 +21,15 @@ def calc_transition_ground(s_true, beta_true):
         for i in range(n_size):
             for j in range(n_size):
                 if i != j:
-                    c[k][i][j] = 1. / (1 + np.exp( (s_true[j] - s_true[i]) / beta_true[k]))
+                    c[k][j][i] = 1. / (1 + np.exp( (s_true[j] - s_true[i]) / beta_true[k]))
     return c
-                    
+
+
 def calc_transition(c):
     import copy
     c = copy.deepcopy(c)
     n_size = c.shape[0]
-
+    c = c.astype(np.float)
     for i in range(n_size):
         for j in range(i + 1, n_size):
             if (c[i][j] + c[j][i]) != 0:
@@ -48,7 +50,7 @@ def calc_transition(c):
 def stationary_distribution(d):
     
     m_size = d.shape[0]
-    
+
     e = d - np.eye(m_size)
     e = e.T
     e[-1] = np.ones(m_size)
@@ -61,14 +63,13 @@ def stationary_distribution(d):
     return res
 
 
-def calc_s_beta(data_mat, verbose=False):
+def calc_s_beta(data_mat, verbose=False, popular_correction=False):
     # if verbose == False:
     def pppp(*arg):
         return
     print = pppp
-        
-    # note the latter two dimension is also flipped
-    c = data_mat.transpose(0, 2, 1)
+
+    c = data_mat
     # shape is n_judges n_items*n_items^T
     n_judges = c.shape[0]
     n_items = c.shape[1]
@@ -78,12 +79,13 @@ def calc_s_beta(data_mat, verbose=False):
     p = calc_transition(mixed)
     sp = np.log(stationary_distribution(p))
     # normalize s for easy comparison
-#     sp -= np.min(sp)
-#     sp /= sp.sum()
+    sp -= np.min(sp)
+    sp /= sp.sum()
 
-# add popular 
-    c = np.concatenate([mixed[np.newaxis,:], c], axis=0)
-    n_judges += 1
+    if popular_correction:
+        c = np.concatenate([mixed[np.newaxis,:], c], axis=0)
+        n_judges += 1
+
     # ------------ use each judge to calc
     # e^(s/beta) = esdb = w (normalized) = u
     # s/beta = sdb = q
@@ -170,19 +172,21 @@ def calc_s_beta(data_mat, verbose=False):
     qq = scipy.sparse.linalg.lsqr(A, b, show=verbose)[0]
     print('qq by lsqr', qq)
 
-    
     # assignment for return
     for s_i in range(n_items_1):
         s[s_i+1] = qq[s_i]
     for b_i in range(n_judges-1):
         betas[b_i+1] = qq[n_items_1+b_i]
-    
+
+    if popular_correction:
+        betas = betas[1:]
+
     return sp, s, betas
 
 
 def train_func_torchy(data_pack, init_seed=None, init_method='random', ground_truth_disturb=0, 
-                      override_beta=False, max_iter=500, lr=1e-3, lr_decay=True,
-                      opt=True, opt_func='SGD', opt_stablizer='default', opt_sparse=False,
+                      override_beta=False, gt_transition=False, max_iter=500, lr=1e-3, lr_decay=True,
+                      opt=True, opt_func='SGD', opt_stablizer='default', opt_sparse=False, fix_s=False,
                       debug=False, verbose=False, algo='simple', 
                       result_pack=None, GPU=True):
     dtype = torch.float
@@ -210,14 +214,18 @@ def train_func_torchy(data_pack, init_seed=None, init_method='random', ground_tr
         init_seed = int(time.time() * 10e7) % 2**32
     torch.manual_seed(init_seed)
 
-    data_cnt = {}
-    data_mat = np.zeros((n_judges, n_items, n_items))
-    for i, j, k in data:
-        data_mat[k][i][j] += 1
-        if (i, j, k) in data_cnt:
-            data_cnt[(i, j, k)] += 1
-        else:
-            data_cnt[(i, j, k)] = 1
+    if gt_transition:
+        data_mat = calc_transition_ground(s_true, beta_true)
+    else:
+        data_cnt = {}
+        data_mat = np.zeros((n_judges, n_items, n_items))
+        for i, j, k in data:
+            data_mat[k][j][i] += 1
+            if (i, j, k) in data_cnt:
+                data_cnt[(i, j, k)] += 1
+            else:
+                data_cnt[(i, j, k)] = 1
+    data_mat = data_mat.astype(np.float)
 
     # --------------- initialization -----------------
     if init_method == 'random':
@@ -226,12 +234,9 @@ def train_func_torchy(data_pack, init_seed=None, init_method='random', ground_tr
         s_init /= np.sum(s_init)
         beta_init = np.random.random(n_judges) * 0.05
         eps_init = np.random.random(n_judges) * 0.05
-    
-    
-#     data_mat = calc_transition_ground(s_true, beta_true)
+
     if init_method == 'spectral':
         s_init_tout, s_init_individual, beta_init = calc_s_beta(data_mat, verbose=verbose)
-        beta_init = beta_init[1:]
         eps_init = np.sqrt(beta_init)
         if algo == 'simple':
             s_init = s_init_tout
@@ -263,7 +268,7 @@ def train_func_torchy(data_pack, init_seed=None, init_method='random', ground_tr
     inv = torch.tensor(1. / (beta_init + 10e-8), device=device, dtype=dtype, requires_grad=True)
     if debug:
         print('initial ranking result', np.argsort(s_init))
-        print('initial: s, beta, eps, inv', [s, beta, eps, inv])
+        print('initial: ','\ns', s, '\nbeta', beta, '\neps', eps, '\ninv', inv)
 
     # --------------- training / optimization -----------------
     if algo == 'simple':
@@ -274,6 +279,9 @@ def train_func_torchy(data_pack, init_seed=None, init_method='random', ground_tr
         params = [s, inv]
     elif algo == 'negative':
         params = [s, beta]
+
+    if fix_s:
+        params = [beta]
     
     p_list = []
     p_noreg_list = []
@@ -308,13 +316,13 @@ def train_func_torchy(data_pack, init_seed=None, init_method='random', ground_tr
                         p += - cnt * torch.log(torch.exp((s[j] - s[i]) * inv[k]) + 1)
             else:
                 replicator = torch.tensor(torch.FloatTensor(np.ones([n_items, n_items])).to(device))
-                sr_m = replicator * s
-                sr_t = torch.transpose(sr_m, 1, 0)
-                sd_m = sr_m - sr_t
+                sr_j = replicator * s # each column is the same value
+                sr_i = torch.transpose(sr_j, 1, 0)
+                si_minus_sj = sr_i - sr_j
                 if algo == 'simple':
-                    p = - torch.sum(torch.sum(data_mat, dim=0) * torch.log(torch.exp(sd_m) + 1))
+                    p = - torch.sum(torch.sum(data_mat, dim=0) * torch.log(torch.exp(si_minus_sj) + 1))
                 elif algo == 'individual':
-                    ex = sd_m.view((1,) + sd_m.shape)
+                    ex = si_minus_sj.view((1,) + si_minus_sj.shape)
                     ep = (eps * eps).view(eps.shape + (1, 1))
                     qu = ex / ep
                     mask = (qu > 11).float()
@@ -323,7 +331,7 @@ def train_func_torchy(data_pack, init_seed=None, init_method='random', ground_tr
                     lg = torch.log(torch.exp(q_exact) + 1) + q_approx
                     p = - torch.sum(data_mat * lg)
                 elif algo == 'negative':
-                    ex = sd_m.view((1,) + sd_m.shape)
+                    ex = si_minus_sj.view((1,) + si_minus_sj.shape)
                     ep = beta.view(beta.shape + (1, 1))
                     qu = ex / ep
                     mask = (qu > 11).float()
@@ -332,7 +340,7 @@ def train_func_torchy(data_pack, init_seed=None, init_method='random', ground_tr
                     lg = torch.log(torch.exp(q_exact) + 1) + q_approx
                     p = - torch.sum(data_mat * lg)
                 elif algo == 'inverse':
-                    ex = sd_m.view((1,) + sd_m.shape)
+                    ex = si_minus_sj.view((1,) + si_minus_sj.shape)
                     iv = inv.view(inv.shape + (1, 1))
                     qu = ex * iv
                     mask = (qu > 11).float()
