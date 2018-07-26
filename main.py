@@ -78,19 +78,19 @@ data_names = [
 #  'po-b10-j8-i100-p8000',
 #  'po-b10-j16-i100-p8000',
     
- 'po-b10-j3-i15-p800',
- 'po-b10-j4-i10-p800',
- 'po-b10-j4-i5-p800',
+ # 'po-b10-j3-i15-p800',
+ # 'po-b10-j4-i10-p800',
+ # 'po-b10-j4-i5-p800',
 #  'po-b10-j8-i10-p800',
 #  'po-b10-j8-i15-p800',
 #  'po-b10-j8-i5-p800',
 #  'po-b2-j4-i10-p800',
 #  'po-b5-j3-i15-p800',
- 'po-b5-j4-i10-p800',
- 'po-b5-j4-i15-p400',
- 'po-b5-j4-i32-p100',
- 'po-b5-j4-i32-p200',
- 'po-b5-j4-i32-p400',
+#  'po-b5-j4-i10-p800',
+#  'po-b5-j4-i15-p400',
+#  'po-b5-j4-i32-p100',
+#  'po-b5-j4-i32-p200',
+#  'po-b5-j4-i32-p400',
 #  'po-b7-j4-i10-p800',
 
 #  'rd-b08-j10-i10-p800',
@@ -110,23 +110,29 @@ data_names = [
 #     'ne-b0.01-j4-i64-p800',
 #     'ne-b0.01-j4-i64-p12800',
 #     'ne-b0.005-j4-i16-p800',
+
+    'be-b1,10-j8-i100-p8000'
 ]
 
 algo_names = [
-#         'btl-spectral-do',
-        'btl-spectral-mle',
-    ##     'btl-random-mle',
+        # 'btl-spectral-do',
+        # 'btl-spectral-mle',
+        # 'btl-random-mle',
 
     #     'gbtl-spectral_all-do',
-        'gbtl-spectral_all-mle',
+    #     'gbtl-spectral_all-mle',
     ##     'gbtl-random_all-mle',
-    'gbtlneg-spectral_all-mle',  #
-    'gbtlinv-spectral_all-mle',  #
+    # 'gbtlneg-spectral_all-mle',  #
+    # 'gbtlinv-spectral_all-mle',  #
 
     ##     'gbtl-disturb-mle',
-    'gbtlneg-disturb-mle',  #
-    'gbtlinv-disturb-mle',  #
+    # 'gbtlneg-disturb-mle',  #
+    # 'gbtlinv-disturb-mle',  #
 
+    # 'gbtl-disturb_random_b_fix^s-mle',  #
+    # 'gbtlneg-disturb_random_b_fix^s-mle',  #
+    'gbtlinv-disturb_random_b_fix^s-mle',  #
+    'gbtlinv-disturb_random_b_fix^s-mle',  #
 ]
 
 storage = Dict()
@@ -138,7 +144,8 @@ data_seeds = [1313, 3838, 6262, 1338, 1362, 3862, 6238, 6213, 3813, 13, 38, 62]
 start_t = time.time()
 
 this_idx = 0
-for seed in data_seeds:
+res_betas = []
+for seed in data_seeds[1:2]:
 
     for data_name in data_names:
         data_pack, data_kwarg = gen_data(data_name, seed)
@@ -152,6 +159,7 @@ for seed in data_seeds:
 
             try:
                 all_pack = run_algo(data_pack, data_kwarg, algo_name, seed)
+                res_betas.append(all_pack['res_beta'])
                 # all_pack['data_pack'].pop('data')
                 # storage[st].append(all_pack)
                 score = get_eval(Dict(all_pack))
@@ -165,21 +173,24 @@ for seed in data_seeds:
             print('============ progress', percent, 'ETA', (time.time() - start_t) / percent * (1 - percent), 'Elpased',
                   (time.time() - start_t))
 
-while os.path.isfile('lock'):
-    time.sleep(1)
-os.system('touch lock')
-if os.path.isfile('acc.pkl'):
-    sf = open('storage.pkl', 'rb')
-    af = open('acc.pkl', 'rb')
-    storage =  {**storage, **pkl.load(sf)}
-    acc = {**acc, **pkl.load(af)}
-    sf.close()
-    af.close()
-    
-sf = open('storage.pkl', 'wb')
-af = open('acc.pkl', 'wb')
-pkl.dump(acc, af)
-pkl.dump(storage, sf)
-sf.close()
-af.close()
-os.system('rm lock')
+# while os.path.isfile('lock'):
+#     time.sleep(1)
+# os.system('touch lock')
+# if os.path.isfile('acc.pkl'):
+#     sf = open('storage.pkl', 'rb')
+#     af = open('acc.pkl', 'rb')
+#     storage =  {**storage, **pkl.load(sf)}
+#     acc = {**acc, **pkl.load(af)}
+#     sf.close()
+#     af.close()
+#
+# sf = open('storage.pkl', 'wb')
+# af = open('acc.pkl', 'wb')
+# pkl.dump(acc, af)
+# pkl.dump(storage, sf)
+# sf.close()
+# af.close()
+# os.system('rm lock')
+from pprint import pprint
+for i in range(3):
+    pprint(res_betas)

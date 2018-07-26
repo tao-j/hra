@@ -33,7 +33,7 @@ By definition, the Gumble distribution must have $\beta > 0$ . In order to cast 
 
 ### gbtl-negative
 
-`gbtl-negative`: the restrcition $\beta > 0$ is lifted in `gbtl`.
+`gbtl-negative`: the restrcition $\beta > 0$ is removed in `gbtl`.
 
 Suppose a judge have good knowlege of the items, however he tends to provide ratings at the opposite direction to his best knowledge. In such adversarial setting, the fomula is quite similar to previous case. Assume $\beta'_k  = - \beta_k < 0$
 
@@ -722,4 +722,343 @@ More Settings using popular information
 9	be-b3,20-j4-i100-p800	gbtl-spectral_all-do	0.4599
 10	be-b3,20-j4-i100-p800	gbtl-spectral_all-mle	nan
 11	be-b3,20-j4-i100-p800	gbtlneg-spectral_all-mle	0.4655
+```
+
+## Log
+
+### 180725
+one judege, see if we can recover beta.
+fix s, only optimize beta.
+
+inspect why sometimes gbtl fails,
+likelihood should be similar gbtl-neg/inv.
+For example
+```
+36	be-b1,10-j8-i100-p8000	btl-spectral-do	0.9786
+41	be-b1,10-j8-i100-p8000	gbtl-disturb-mle	0.9999
+37	be-b1,10-j8-i100-p8000	gbtl-spectral_all-do	0.9625
+38	be-b1,10-j8-i100-p8000	gbtl-spectral_all-mle	0.9666
+40	be-b1,10-j8-i100-p8000	gbtlinv-spectral_all-mle	0.3240
+39	be-b1,10-j8-i100-p8000	gbtlneg-spectral_all-mle	0.3236
+```
+
+
+#### Beta recover test
+
+##### Several Judges
+Multiple judges with same beta, some are adversarial.
+Ground truth is `beta [ 1.  1.  1.  1.  1.  1. -1. -1.]`. Learning rate fixed to `1e-3`.
+
+It seems to recover beta with trouble.
+
+```
+'res_beta': array([1.7470684, 0.8957187, 0.8417263, 0.9862341, 0.8872848, 1.4380397,
+       1.9282099, 1.9390941], dtype=float32)}
+ne-b0.01-j8-i64-p800+gbtlneg-disturb_random_b_fix^s-mle 0.9999999999999998 
+
+'res_beta': array([0.8853454 , 4.273605  , 0.9111028 , 0.875287  , 0.8703403 ,
+       0.87689376, 2.0510824 , 7.044995  ], dtype=float32)}
+ne-b0.01-j8-i64-p1600+gbtlneg-disturb_random_b_fix^s-mle 0.9999999999999998 
+
+'res_beta': array([0.03185409, 0.03961577, 0.0046634 , 0.00186974, 0.03982973,
+       0.02476502, 0.04063753, 0.02269254], dtype=float32)}
+ne-b0.01-j8-i64-p1600+gbtlinv-disturb_random_b-fix^s-mle 0.9999999999999998 
+
+'res_beta': array([0.29575065, 0.29462597, 0.2800438 , 0.25666076], dtype=float32)}
+be-b10,100-j4-i100-p8000+gbtlneg-disturb_random_b_fix^s-mle 0.9999999999999999 
+```
+
+##### One Judge $\beta$ Recovery Test
+
+First line shows the learning rate, followed by three brackets (`gbtl`, `gbtlneg`, `gbtlinv` respectively). In each bracket, each number is the estimate of 8 different magnitude of beta in increasing order. Initial $\beta$ for data generation is `[0.001, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1.]`. For easy comparision, $s$ $\beta$ are scaled so that $\beta = 1.0$. Which is to say, when looking at the following result, we should compare to the target value `1`.
+
+One thing I cannot understand is that the learning curve (likelihood) for these experiments are mostly 45 degree upwards, regardless they overshoot the estimate of beta or underestimate it. Charts are attached as additional zip file.
+
+Some thoughts about this result. Firstly, there exists one learning rate that can recover its corresponding $\beta$, so in later experiments, a traversal of learning rate may help. Second, looking at `gbtlinv` set of experiment, only large learning rate can make progress.
+
+```
+5e-4
+[array([0.7787109], dtype=float32),
+ array([9.990575], dtype=float32),
+ array([12.694106], dtype=float32),
+ array([6.20445], dtype=float32),
+ array([2.5426757], dtype=float32),
+ array([0.8015833], dtype=float32),
+ array([0.2502458], dtype=float32),
+ array([0.15118523], dtype=float32)]
+[array([0.64776593], dtype=float32),
+ array([2.3180993], dtype=float32),
+ array([2.6304095], dtype=float32),
+ array([1.8435811], dtype=float32),
+ array([1.1795928], dtype=float32),
+ array([0.6552971], dtype=float32),
+ array([0.31106076], dtype=float32),
+ array([0.19316907], dtype=float32)]
+[array([0.02784825], dtype=float32),
+ array([0.02807491], dtype=float32),
+ array([0.02809899], dtype=float32),
+ array([0.02801491], dtype=float32),
+ array([0.02793133], dtype=float32),
+ array([0.02787193], dtype=float32),
+ array([0.0278246], dtype=float32),
+ array([0.02781279], dtype=float32)]
+
+1e-3
+[array([1.3846128], dtype=float32),
+ array([41.444874], dtype=float32),
+ array([50.904438], dtype=float32),
+ array([24.744034], dtype=float32),
+ array([10.088883], dtype=float32),
+ array([3.1006026], dtype=float32),
+ array([0.62354225], dtype=float32),
+ array([0.22420403], dtype=float32)]
+[array([0.9827368], dtype=float32),
+ array([4.7528925], dtype=float32),
+ array([5.326069], dtype=float32),
+ array([3.7147434], dtype=float32),
+ array([2.3646145], dtype=float32),
+ array([1.2987756], dtype=float32),
+ array([0.56297106], dtype=float32),
+ array([0.29207832], dtype=float32)]
+[array([0.02790754], dtype=float32),
+ array([0.02835429], dtype=float32),
+ array([0.02841576], dtype=float32),
+ array([0.02821998], dtype=float32),
+ array([0.02806289], dtype=float32),
+ array([0.02793133], dtype=float32),
+ array([0.02784825], dtype=float32),
+ array([0.02781279], dtype=float32)]
+
+5e-3
+[array([21.10289], dtype=float32),
+ array([1034.4423], dtype=float32),
+ array([1264.5232], dtype=float32),
+ array([612.49384], dtype=float32),
+ array([248.17784], dtype=float32),
+ array([75.52871], dtype=float32),
+ array([14.379489], dtype=float32),
+ array([3.8281097], dtype=float32)]
+[array([4.1067114], dtype=float32),
+ array([24.201225], dtype=float32),
+ array([26.7861], dtype=float32),
+ array([18.632616], dtype=float32),
+ array([11.847648], dtype=float32),
+ array([6.508442], dtype=float32),
+ array([2.77821], dtype=float32),
+ array([1.3497801], dtype=float32)]
+[array([0.02831753], dtype=float32),
+ array([0.03080675], dtype=float32),
+ array([0.03115827], dtype=float32),
+ array([0.03003034], dtype=float32),
+ array([0.02916177], dtype=float32),
+ array([0.02848987], dtype=float32),
+ array([0.02803371], dtype=float32),
+ array([0.02788379], dtype=float32)]
+
+1e-2
+[array([134.44835], dtype=float32),
+ array([4132.892], dtype=float32),
+ array([5052.7007], dtype=float32),
+ array([2446.2231], dtype=float32),
+ array([990.3233], dtype=float32),
+ array([300.79807], dtype=float32),
+ array([56.973015], dtype=float32),
+ array([15.031897], dtype=float32)]
+[array([8.324551], dtype=float32),
+ array([48.442204], dtype=float32),
+ array([53.581444], dtype=float32),
+ array([37.274475], dtype=float32),
+ array([23.69691], dtype=float32),
+ array([13.014685], dtype=float32),
+ array([5.5523143], dtype=float32),
+ array([2.6954546], dtype=float32)]
+[array([0.02885363], dtype=float32),
+ array([0.03452305], dtype=float32),
+ array([0.03541843], dtype=float32),
+ array([0.03265775], dtype=float32),
+ array([0.03065244], dtype=float32),
+ array([0.02921683], dtype=float32),
+ array([0.02826867], dtype=float32),
+ array([0.02795516], dtype=float32)]
+
+5e-2
+[array([3613.4836], dtype=float32),
+ array([103224.836], dtype=float32),
+ array([126209.74], dtype=float32),
+ array([61080.594], dtype=float32),
+ array([24710.375], dtype=float32),
+ array([7493.67], dtype=float32),
+ array([1412.9], dtype=float32),
+ array([369.93982], dtype=float32)]
+[array([44.609905], dtype=float32),
+ array([242.26326], dtype=float32),
+ array([267.88318], dtype=float32),
+ array([186.34833], dtype=float32),
+ array([118.46051], dtype=float32),
+ array([65.04938], dtype=float32),
+ array([27.747059], dtype=float32),
+ array([13.457992], dtype=float32)]
+[array([0.03398943], dtype=float32),
+ array([0.5710917], dtype=float32),
+ array([0.8801918], dtype=float32),
+ array([0.10303641], dtype=float32),
+ array([0.05127094], dtype=float32),
+ array([0.03649474], dtype=float32),
+ array([0.03025967], dtype=float32),
+ array([0.02858927], dtype=float32)]
+
+```
+
+#### Consistency 
+
+In previous experiment, `popular` fix turned out to be a useful trick when it comes to make good initialization point.
+The following experiemnts shows using popluation fix, focus on this one setting, tune the learning rate.
+
+For `be-b1,10-j8-i100-p800`, with `1e-3` learning rate, these are the result from last week.
+```
+54	po-b2-j4-i100-p80000	btl-spectral-do	0.7129
+59	po-b2-j4-i100-p80000	gbtl-disturb-mle	0.9999
+55	po-b2-j4-i100-p80000	gbtl-spectral_all-do	0.7231
+56	po-b2-j4-i100-p80000	gbtl-spectral_all-mle	0.7228
+58	po-b2-j4-i100-p80000	gbtlinv-spectral_all-mle	0.2216
+57	po-b2-j4-i100-p80000	gbtlneg-spectral_all-mle	0.2215
+```
+
+By traversing the learning rate, and also give a `abs` before `sqrt` initial $\beta$, we now can also evaluate the algorithm when the estimate of the $\beta$ is negative.
+
+In the following line up, numbers after `mle` is the learning rate.
+
+```
+0	po-b2-j4-i100-p80000	btl-spectral-do	0.7199
+1	po-b2-j4-i100-p80000	gbtl-spectral_all-mle-0.0005	0.7529
+6	po-b2-j4-i100-p80000	gbtl-spectral_all-mle-0.001	0.7494
+11	po-b2-j4-i100-p80000	gbtl-spectral_all-mle-0.002	0.7480
+16	po-b2-j4-i100-p80000	gbtl-spectral_all-mle-0.005	0.7384
+21	po-b2-j4-i100-p80000	gbtl-spectral_all-mle-0.01	0.7276
+26	po-b2-j4-i100-p80000	gbtl-spectral_all-mle-0.02	0.7011
+31	po-b2-j4-i100-p80000	gbtl-spectral_all-mle-0.05	0.6399
+36	po-b2-j4-i100-p80000	gbtl-spectral_all-mle-0.1	0.6387
+41	po-b2-j4-i100-p80000	gbtl-spectral_all-mle-0.2	0.6962
+46	po-b2-j4-i100-p80000	gbtl-spectral_all-mle-0.5	0.7621
+51	po-b2-j4-i100-p80000	gbtl-spectral_all-mle-1.0	0.7610
+56	po-b2-j4-i100-p80000	gbtl-spectral_all-mle-1.5	0.7581
+61	po-b2-j4-i100-p80000	gbtl-spectral_all-mle-2.0	0.7577
+3	po-b2-j4-i100-p80000	gbtlinv-random_all-mle-0.0005	-0.1092
+8	po-b2-j4-i100-p80000	gbtlinv-random_all-mle-0.001	0.0936
+13	po-b2-j4-i100-p80000	gbtlinv-random_all-mle-0.002	0.1232
+18	po-b2-j4-i100-p80000	gbtlinv-random_all-mle-0.005	0.6513
+23	po-b2-j4-i100-p80000	gbtlinv-random_all-mle-0.01	0.2291
+28	po-b2-j4-i100-p80000	gbtlinv-random_all-mle-0.02	0.3464
+33	po-b2-j4-i100-p80000	gbtlinv-random_all-mle-0.05	0.6828
+38	po-b2-j4-i100-p80000	gbtlinv-random_all-mle-0.1	0.7108
+43	po-b2-j4-i100-p80000	gbtlinv-random_all-mle-0.2	nan
+48	po-b2-j4-i100-p80000	gbtlinv-random_all-mle-0.5	0.7279
+53	po-b2-j4-i100-p80000	gbtlinv-random_all-mle-1.0	nan
+58	po-b2-j4-i100-p80000	gbtlinv-random_all-mle-1.5	nan
+63	po-b2-j4-i100-p80000	gbtlinv-random_all-mle-2.0	nan
+5	po-b2-j4-i100-p80000	gbtlinv-spectral_all-mle-0.0005	-0.7518
+10	po-b2-j4-i100-p80000	gbtlinv-spectral_all-mle-0.001	-0.7514
+15	po-b2-j4-i100-p80000	gbtlinv-spectral_all-mle-0.002	-0.7515
+20	po-b2-j4-i100-p80000	gbtlinv-spectral_all-mle-0.005	-0.7546
+25	po-b2-j4-i100-p80000	gbtlinv-spectral_all-mle-0.01	-0.7572
+30	po-b2-j4-i100-p80000	gbtlinv-spectral_all-mle-0.02	-0.7446
+35	po-b2-j4-i100-p80000	gbtlinv-spectral_all-mle-0.05	-0.6361
+40	po-b2-j4-i100-p80000	gbtlinv-spectral_all-mle-0.1	-0.5531
+45	po-b2-j4-i100-p80000	gbtlinv-spectral_all-mle-0.2	-0.5600
+50	po-b2-j4-i100-p80000	gbtlinv-spectral_all-mle-0.5	-0.3868
+55	po-b2-j4-i100-p80000	gbtlinv-spectral_all-mle-1.0	0.7095
+60	po-b2-j4-i100-p80000	gbtlinv-spectral_all-mle-1.5	0.7443
+65	po-b2-j4-i100-p80000	gbtlinv-spectral_all-mle-2.0	0.7479
+2	po-b2-j4-i100-p80000	gbtlneg-random_all-mle-0.0005	0.1029
+7	po-b2-j4-i100-p80000	gbtlneg-random_all-mle-0.001	0.1938
+12	po-b2-j4-i100-p80000	gbtlneg-random_all-mle-0.002	0.0872
+17	po-b2-j4-i100-p80000	gbtlneg-random_all-mle-0.005	0.6337
+22	po-b2-j4-i100-p80000	gbtlneg-random_all-mle-0.01	0.7605
+27	po-b2-j4-i100-p80000	gbtlneg-random_all-mle-0.02	0.6891
+32	po-b2-j4-i100-p80000	gbtlneg-random_all-mle-0.05	0.6530
+37	po-b2-j4-i100-p80000	gbtlneg-random_all-mle-0.1	0.5409
+42	po-b2-j4-i100-p80000	gbtlneg-random_all-mle-0.2	0.7538
+47	po-b2-j4-i100-p80000	gbtlneg-random_all-mle-0.5	0.7314
+52	po-b2-j4-i100-p80000	gbtlneg-random_all-mle-1.0	0.7305
+57	po-b2-j4-i100-p80000	gbtlneg-random_all-mle-1.5	0.7362
+62	po-b2-j4-i100-p80000	gbtlneg-random_all-mle-2.0	0.7299
+4	po-b2-j4-i100-p80000	gbtlneg-spectral_all-mle-0.0005	-0.7518
+9	po-b2-j4-i100-p80000	gbtlneg-spectral_all-mle-0.001	-0.7514
+14	po-b2-j4-i100-p80000	gbtlneg-spectral_all-mle-0.002	-0.7515
+19	po-b2-j4-i100-p80000	gbtlneg-spectral_all-mle-0.005	-0.7534
+24	po-b2-j4-i100-p80000	gbtlneg-spectral_all-mle-0.01	-0.7580
+29	po-b2-j4-i100-p80000	gbtlneg-spectral_all-mle-0.02	-0.7430
+34	po-b2-j4-i100-p80000	gbtlneg-spectral_all-mle-0.05	-0.6222
+39	po-b2-j4-i100-p80000	gbtlneg-spectral_all-mle-0.1	-0.5909
+44	po-b2-j4-i100-p80000	gbtlneg-spectral_all-mle-0.2	-0.6711
+49	po-b2-j4-i100-p80000	gbtlneg-spectral_all-mle-0.5	-0.7351
+54	po-b2-j4-i100-p80000	gbtlneg-spectral_all-mle-1.0	-0.7441
+59	po-b2-j4-i100-p80000	gbtlneg-spectral_all-mle-1.5	-0.7445
+64	po-b2-j4-i100-p80000	gbtlneg-spectral_all-mle-2.0	-0.7440
+```
+
+##### Revised `gtbl` performance 
+
+```
+data_name	algo_name	acc
+30	be-b1,10-j8-i100-p800	btl-spectral-do	0.8512
+35	be-b1,10-j8-i100-p800	gbtl-disturb-mle	0.9993
+31	be-b1,10-j8-i100-p800	gbtl-spectral_all-do	0.8606
+32	be-b1,10-j8-i100-p800	gbtl-spectral_all-mle	**0.9032
+34	be-b1,10-j8-i100-p800	gbtlinv-spectral_all-mle	0.8530
+33	be-b1,10-j8-i100-p800	gbtlneg-spectral_all-mle	0.8608
+36	be-b1,10-j8-i100-p8000	btl-spectral-do	0.9786
+41	be-b1,10-j8-i100-p8000	gbtl-disturb-mle	0.9999
+37	be-b1,10-j8-i100-p8000	gbtl-spectral_all-do	0.9625
+38	be-b1,10-j8-i100-p8000	gbtl-spectral_all-mle	**0.9848
+40	be-b1,10-j8-i100-p8000	gbtlinv-spectral_all-mle	0.3240
+39	be-b1,10-j8-i100-p8000	gbtlneg-spectral_all-mle	0.3236
+6	be-b10,100-j4-i100-p800	btl-spectral-do	0.1288
+11	be-b10,100-j4-i100-p800	gbtl-disturb-mle	1.0000
+7	be-b10,100-j4-i100-p800	gbtl-spectral_all-do	0.1296
+8	be-b10,100-j4-i100-p800	gbtl-spectral_all-mle	**0.1326
+10	be-b10,100-j4-i100-p800	gbtlinv-spectral_all-mle	0.1301
+9	be-b10,100-j4-i100-p800	gbtlneg-spectral_all-mle	0.1320
+0	be-b10,100-j4-i100-p8000	btl-spectral-do	0.6115
+5	be-b10,100-j4-i100-p8000	gbtl-disturb-mle	1.0000
+1	be-b10,100-j4-i100-p8000	gbtl-spectral_all-do	0.6236
+2	be-b10,100-j4-i100-p8000	gbtl-spectral_all-mle	**0.6316
+4	be-b10,100-j4-i100-p8000	gbtlinv-spectral_all-mle	-0.1615
+3	be-b10,100-j4-i100-p8000	gbtlneg-spectral_all-mle	-0.1615
+12	be-b5,20-j4-i100-p1600	btl-spectral-do	0.1782
+17	be-b5,20-j4-i100-p1600	gbtl-disturb-mle	0.9999
+13	be-b5,20-j4-i100-p1600	gbtl-spectral_all-do	0.1733
+14	be-b5,20-j4-i100-p1600	gbtl-spectral_all-mle	**0.1652
+16	be-b5,20-j4-i100-p1600	gbtlinv-spectral_all-mle	0.1671
+15	be-b5,20-j4-i100-p1600	gbtlneg-spectral_all-mle	0.1682
+18	be-b5,20-j4-i15-p1600	btl-spectral-do	0.9333
+23	be-b5,20-j4-i15-p1600	gbtl-disturb-mle	1.0000
+19	be-b5,20-j4-i15-p1600	gbtl-spectral_all-do	0.9262
+20	be-b5,20-j4-i15-p1600	gbtl-spectral_all-mle	**0.9357
+22	be-b5,20-j4-i15-p1600	gbtlinv-spectral_all-mle	0.9357
+21	be-b5,20-j4-i15-p1600	gbtlneg-spectral_all-mle	0.9357
+24	be-b5,20-j4-i8-p1600	btl-spectral-do	1.0000
+29	be-b5,20-j4-i8-p1600	gbtl-disturb-mle	1.0000
+25	be-b5,20-j4-i8-p1600	gbtl-spectral_all-do	0.9921
+26	be-b5,20-j4-i8-p1600	gbtl-spectral_all-mle	**1.0000
+28	be-b5,20-j4-i8-p1600	gbtlinv-spectral_all-mle	1.0000
+27	be-b5,20-j4-i8-p1600	gbtlneg-spectral_all-mle	1.0000
+42	po-b2-j4-i10-p800	btl-spectral-do	0.9838
+47	po-b2-j4-i10-p800	gbtl-disturb-mle	1.0000
+43	po-b2-j4-i10-p800	gbtl-spectral_all-do	0.9475
+44	po-b2-j4-i10-p800	gbtl-spectral_all-mle	**0.9798
+46	po-b2-j4-i10-p800	gbtlinv-spectral_all-mle	0.9152
+45	po-b2-j4-i10-p800	gbtlneg-spectral_all-mle	0.9717
+48	po-b2-j4-i100-p8000	btl-spectral-do	0.2851
+53	po-b2-j4-i100-p8000	gbtl-disturb-mle	0.9989
+49	po-b2-j4-i100-p8000	gbtl-spectral_all-do	0.3277
+50	po-b2-j4-i100-p8000	gbtl-spectral_all-mle	**0.3257
+52	po-b2-j4-i100-p8000	gbtlinv-spectral_all-mle	-0.1817
+51	po-b2-j4-i100-p8000	gbtlneg-spectral_all-mle	-0.1506
+54	po-b2-j4-i100-p80000	btl-spectral-do	0.7129
+59	po-b2-j4-i100-p80000	gbtl-disturb-mle	0.9999
+55	po-b2-j4-i100-p80000	gbtl-spectral_all-do	0.7231
+56	po-b2-j4-i100-p80000	gbtl-spectral_all-mle	**0.7228
+58	po-b2-j4-i100-p80000	gbtlinv-spectral_all-mle	0.2216
+57	po-b2-j4-i100-p80000	gbtlneg-spectral_all-mle	0.2215
 ```

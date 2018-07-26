@@ -63,7 +63,7 @@ def stationary_distribution(d):
     return res
 
 
-def calc_s_beta(data_mat, verbose=False, popular_correction=False):
+def calc_s_beta(data_mat, verbose=False, popular_correction=True):
     # if verbose == False:
     def pppp(*arg):
         return
@@ -207,8 +207,6 @@ def train_func_torchy(data_pack, init_seed=None, init_method='random', ground_tr
         opt_func = torch.optim.SGD
     elif opt_func == 'Adam':
         opt_func = torch.optim.Adam
-    else:
-        assert(False, 'specificed optimization method is incorrect.')
 
     if not init_seed:
         init_seed = int(time.time() * 10e7) % 2**32
@@ -237,7 +235,7 @@ def train_func_torchy(data_pack, init_seed=None, init_method='random', ground_tr
 
     if init_method == 'spectral':
         s_init_tout, s_init_individual, beta_init = calc_s_beta(data_mat, verbose=verbose)
-        eps_init = np.sqrt(beta_init)
+        eps_init = np.sqrt(np.abs(beta_init))
         if algo == 'simple':
             s_init = s_init_tout
         if algo == 'individual':
@@ -271,18 +269,17 @@ def train_func_torchy(data_pack, init_seed=None, init_method='random', ground_tr
         print('initial: ','\ns', s, '\nbeta', beta, '\neps', eps, '\ninv', inv)
 
     # --------------- training / optimization -----------------
-    if algo == 'simple':
-        params = [s]
-    elif algo == 'individual':
-        params = [s, eps]
+    params = []
+    if algo == 'individual':
+        params = [eps]
     elif algo == 'inverse':
-        params = [s, inv]
+        params = [inv]
     elif algo == 'negative':
-        params = [s, beta]
-
-    if fix_s:
         params = [beta]
-    
+
+    if not fix_s or algo == 'simple':
+        params.append(s)
+
     p_list = []
     p_noreg_list = []
     s_list = []
@@ -290,7 +287,7 @@ def train_func_torchy(data_pack, init_seed=None, init_method='random', ground_tr
         # NOTE: average gradient manually 
         print('lr', lr)
         optimizer = opt_func(params, lr=lr/n_pairs)
-        sched = torch.optim.lr_scheduler.StepLR(optimizer, 1000)
+        sched = torch.optim.lr_scheduler.StepLR(optimizer, max_iter)
 
         data_mat = torch.tensor(data_mat, device=device, dtype=dtype)
 
@@ -372,28 +369,29 @@ def train_func_torchy(data_pack, init_seed=None, init_method='random', ground_tr
                 print('shift by', np.min(s.data.cpu().numpy()))
             s.data -= torch.min(s.data)
 
-            if opt_stablizer == 'default':
-                s_ratio = torch.sum(s.data)
-#                 print('s_ratio', s_ratio.device, s_ratio.type())
-                if debug and verbose:
-                    print('scale by', 1. / s_ratio)
-                s.data = s.data / s_ratio
-                eps.data = eps.data / s_ratio.pow(0.5)
-                beta.data = beta.data / s_ratio
-                inv.data = inv.data * s_ratio
-            elif opt_stablizer == 'decouple':
-                if algo == 'individual':
-                    s_ratio = np.sqrt(1. / eps.data.cpu().numpy()[0])
-                    eps.data = eps.data * s_ratio
-                    s.data = s.data * s_ratio
-                elif algo == 'negative':
-                    s_ratio = 1. / beta.data.cpu().numpy()[0]
-                    beta.data = beta.data * s_ratio
-                    s.data = s.data * s_ratio
-                elif algo == 'inverse':
-                    s_ratio = 1. / inv.data.cpu().numpy()[0]
-                    inv.data = inv.data * s_ratio
+            if not fix_s:
+                if opt_stablizer == 'default':
+                    s_ratio = torch.sum(s.data)
+    #                 print('s_ratio', s_ratio.device, s_ratio.type())
+                    if debug and verbose:
+                        print('scale by', 1. / s_ratio)
                     s.data = s.data / s_ratio
+                    eps.data = eps.data / s_ratio.pow(0.5)
+                    beta.data = beta.data / s_ratio
+                    inv.data = inv.data * s_ratio
+                elif opt_stablizer == 'decouple':
+                    if algo == 'individual':
+                        s_ratio = np.sqrt(1. / eps.data.cpu().numpy()[0])
+                        eps.data = eps.data * s_ratio
+                        s.data = s.data * s_ratio
+                    elif algo == 'negative':
+                        s_ratio = 1. / beta.data.cpu().numpy()[0]
+                        beta.data = beta.data * s_ratio
+                        s.data = s.data * s_ratio
+                    elif algo == 'inverse':
+                        s_ratio = 1. / inv.data.cpu().numpy()[0]
+                        inv.data = inv.data * s_ratio
+                        s.data = s.data / s_ratio
                 
             s_list.append(np.sum((s.data.cpu().numpy() - s_true)**2))
             if debug and verbose:
@@ -424,7 +422,7 @@ def train_func_torchy(data_pack, init_seed=None, init_method='random', ground_tr
         print('predicted rank btl', rank)
     elif algo == 'individual':
         print('predicted rank gbtl', rank)
-    elif algo == 'individual':
+    elif algo == 'inverse':
         print('predicted rank gbtl-inv', rank)
 
     res_pack = Dict()
