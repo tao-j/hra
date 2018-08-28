@@ -72,8 +72,35 @@ def generate_data(data_seed=None,
     judge_imgs = []
     total_img = np.zeros((3, n_items, n_items), dtype=np.float)
 
+
+    known_pairs_ratio = 0.1
+    repeated_comps = 32
+
     for k, beta_i in enumerate(betas):
         data_img = np.zeros((n_items, n_items))
+
+        # same pair repeat
+        # for i in range(n_items):
+        #     for j in range(n_items):
+        #         if i == j:
+        #             continue
+        #
+        #         if np.random.random() <= known_pairs_ratio:
+        #             for _ in range(repeated_comps):
+        #                 if beta_i < 0:
+        #                     s_j = s[i] + np.random.gumbel(-0.5772 * beta_i, -beta_i)
+        #                     s_i = s[j] + np.random.gumbel(-0.5772 * beta_i, -beta_i)
+        #                 else:
+        #                     s_i = s[i] + np.random.gumbel(-0.5772 * beta_i, beta_i)
+        #                     s_j = s[j] + np.random.gumbel(-0.5772 * beta_i, beta_i)
+        #                 if s_i > s_j:
+        #                     data.append((i, j, k))
+        #                     data_img[j][i] += 1.  # rgb
+        #                 else:
+        #                     data.append((j, i, k))
+        #                     data_img[i][j] += 1.  # rgb
+
+        # random pair
         for _ in range(n_pairs):
             # ensure that generate two different items for comparison
             i = 0
@@ -94,6 +121,7 @@ def generate_data(data_seed=None,
             else:
                 data.append((j, i, k))
                 data_img[i][j] += 1. # rgb
+
         total_img[2] += data_img
         judge_imgs.append(data_img / np.max(np.max(data_img)))
         

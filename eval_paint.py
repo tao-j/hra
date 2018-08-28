@@ -89,7 +89,7 @@ def run_algo(data_pack, data_kwarg, algo_name, seed):
     
     algo_kwarg = {
         'init_seed': seed, 'init_method': init,
-        'override_beta': ob, 'gt_transition': ot, 'max_iter': 4000, 'lr': lr, 'lr_decay': False,
+        'override_beta': ob, 'gt_transition': ot, 'max_iter': 4000, 'lr': lr, 'lr_decay': True  ,
         'opt': opt, 'opt_func': 'SGD', 'opt_stablizer': 'decouple', 'opt_sparse': False, 'fix_s': fs,
         'debug': 1, 'verbose': 0, 'algo': algo,
     }

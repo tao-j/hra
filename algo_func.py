@@ -21,7 +21,7 @@ def calc_transition_ground(s_true, beta_true):
         for i in range(n_size):
             for j in range(n_size):
                 if i != j:
-                    c[k][j][i] = 1. / (1 + np.exp( (s_true[j] - s_true[i]) / beta_true[k]))
+                    c[k][j][i] = 1. / (1 + np.exp((s_true[j] - s_true[i]) / beta_true[k]))
     return c
 
 
@@ -286,17 +286,14 @@ def train_func_torchy(data_pack, init_seed=None, init_method='random', ground_tr
     if opt:
         # NOTE: average gradient manually 
         print('lr', lr)
-        optimizer = opt_func(params, lr=lr/n_pairs)
-        sched = torch.optim.lr_scheduler.StepLR(optimizer, max_iter)
+        optimizer = opt_func(params, lr=lr)
+        sched = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', verbose=True, patience=1000)
 
         data_mat = torch.tensor(data_mat, device=device, dtype=dtype)
 
         for iter_num in range(max_iter):
             # TODO: minibatch training
             # np.random.shuffle(data)
-
-            if lr_decay:
-                sched.step()
             
             if opt_sparse:
                 p = torch.tensor(0, dtype=dtype).to(device)
@@ -327,6 +324,7 @@ def train_func_torchy(data_pack, init_seed=None, init_method='random', ground_tr
                     q_exact = qu - q_approx
                     lg = torch.log(torch.exp(q_exact) + 1) + q_approx
                     p = - torch.sum(data_mat * lg)
+
                 elif algo == 'negative':
                     ex = si_minus_sj.view((1,) + si_minus_sj.shape)
                     ep = beta.view(beta.shape + (1, 1))
@@ -336,6 +334,8 @@ def train_func_torchy(data_pack, init_seed=None, init_method='random', ground_tr
                     q_exact = qu - q_approx
                     lg = torch.log(torch.exp(q_exact) + 1) + q_approx
                     p = - torch.sum(data_mat * lg)
+                    # grad_b = torch.sum(torch.sum(data_mat * (-1. / ep / ep * ex / (torch.exp(-qu) + 1)), dim=-1), dim=-1) / n_pairs
+
                 elif algo == 'inverse':
                     ex = si_minus_sj.view((1,) + si_minus_sj.shape)
                     iv = inv.view(inv.shape + (1, 1))
@@ -345,6 +345,9 @@ def train_func_torchy(data_pack, init_seed=None, init_method='random', ground_tr
                     q_exact = qu - q_approx
                     lg = torch.log(torch.exp(q_exact) + 1) + q_approx
                     p = - torch.sum(data_mat * lg)
+                    # grad_b = torch.sum(torch.sum(data_mat * ex / (torch.exp(-qu) + 1), dim=-1), dim=-1) / n_pairs
+
+            p = -p / n_pairs
             if iter_num == 0:
                 print('initial likelihood', p)
             # ----- regularization
@@ -356,18 +359,31 @@ def train_func_torchy(data_pack, init_seed=None, init_method='random', ground_tr
             p_list.append(np.array(p.data))
 
             optimizer.zero_grad()
-            p = -p
             p.backward()
             if debug and verbose:
                 print('>>> s and beta(or its delegate) gradient values')
-                for pa in params:
-                    print(pa, pa.grad)
+                for pa_index, pa in enumerate(params):
+                    # print(pa, pa.grad)
+                    grad_norm = torch.sqrt(torch.sum(pa.grad.data * pa.grad.data))
+                    try:
+                        assert not np.any(np.isnan(pa.data.cpu().numpy())), 'value nan at %d' % pa_index
+                        assert not np.any(np.isnan(pa.grad.data.cpu().numpy())), 'grad nan at %d' % pa_index
+                    except:
+                        pass
+                print('grad_norm', grad_norm)
+            pa.grad.data /= grad_norm * 0.01
+                # print('after', pa, pa.grad, 'grad_norm', grad_norm)
             optimizer.step()
+
+
 
             # shift and scale after optimization
             if debug and verbose:
                 print('shift by', np.min(s.data.cpu().numpy()))
             s.data -= torch.min(s.data)
+
+            if lr_decay:
+                sched.step(p)
 
             if not fix_s:
                 if opt_stablizer == 'default':
@@ -380,16 +396,20 @@ def train_func_torchy(data_pack, init_seed=None, init_method='random', ground_tr
                     beta.data = beta.data / s_ratio
                     inv.data = inv.data * s_ratio
                 elif opt_stablizer == 'decouple':
+                    # TODO: maybe we can have better relative beta point rather fixed index
+                    # idx = np.argmax(pa[0].data.cpu().numpy())
+                    # idx = np.argmin(pa[0].data.cpu().numpy())
+                    idx = 0
                     if algo == 'individual':
-                        s_ratio = np.sqrt(1. / eps.data.cpu().numpy()[0])
+                        s_ratio = np.sqrt(1. / eps.data.cpu().numpy()[idx])
                         eps.data = eps.data * s_ratio
                         s.data = s.data * s_ratio
                     elif algo == 'negative':
-                        s_ratio = 1. / beta.data.cpu().numpy()[0]
+                        s_ratio = np.abs(1. / beta.data.cpu().numpy()[idx])
                         beta.data = beta.data * s_ratio
                         s.data = s.data * s_ratio
                     elif algo == 'inverse':
-                        s_ratio = 1. / inv.data.cpu().numpy()[0]
+                        s_ratio = np.abs(1. / inv.data.cpu().numpy()[idx])
                         inv.data = inv.data * s_ratio
                         s.data = s.data / s_ratio
                 
@@ -398,10 +418,10 @@ def train_func_torchy(data_pack, init_seed=None, init_method='random', ground_tr
                 print('-------iter--------')
                 
         if debug:
-            plt.plot(p_list[1:])
+            plt.plot(p_list[10:])
 #             ax.set_yscale('log')
             plt.show()
-            plt.plot(s_list[1:])
+            plt.plot(s_list[10:])
             plt.show()
 #             plt.plot(p_noreg_list)
 #             plt.show()
@@ -416,6 +436,13 @@ def train_func_torchy(data_pack, init_seed=None, init_method='random', ground_tr
         res_beta = beta.data.cpu().numpy()
     if algo == 'inverse':
         res_beta = 1. / inv.data.cpu().numpy()
+
+    print(np.sum(res_beta > 0), 'sum')
+    if np.sum(res_beta > 0) < np.sum(res_beta < 0):
+        res_beta = -res_beta
+        res_s = -res_s
+        print('reversed')
+
     rank = np.argsort(res_s)
 
     if algo == 'simple':
