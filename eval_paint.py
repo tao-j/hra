@@ -4,6 +4,8 @@ import scipy
 
 from algo_func import *
 from data_helper import *
+from addict import Dict
+
 
 def err_func(pred):
     return np.abs(np.arange(len(pred)) - pred).mean()
@@ -16,14 +18,13 @@ def acc_func(pred, src=None):
 
 
 def get_eval(all_pack):
-    s_pred = all_pack.res_s
-    rank_pred = np.argsort(s_pred)
-    rank_orig = np.argsort(all_pack.data_pack.s)
-    if np.any(np.isnan(np.array(s_pred))):
+    s_est = all_pack.s_est
+    rank_pred = np.argsort(s_est)
+    rank_orig = np.argsort(all_pack.data_pack.s_true)
+    if np.any(np.isnan(np.array(s_est))):
         acc = np.nan
     else:
         acc = acc_func(rank_pred, rank_orig)
-    
     return acc
 
 
@@ -50,18 +51,17 @@ def gen_data(data_name, seed):
         'n_items': ni,
         'n_judges': nj,
         'n_pairs': np,
-        'visualization': 1,
+        'visualization': 0,
     }
     data_pack = generate_data(**data_kwarg)
     return data_pack, data_kwarg
 
 
 def run_algo(data_pack, data_kwarg, algo_name, seed):
-    
     an = algo_name.split('-')
     algo_lookup = {
-        'gbtl': 'individual',
         'btl': 'simple',
+        'gbtl': 'individual',
         'gbtlinv': 'inverse',
         'gbtlneg': 'negative'
     }
@@ -89,13 +89,16 @@ def run_algo(data_pack, data_kwarg, algo_name, seed):
     
     algo_kwarg = {
         'init_seed': seed, 'init_method': init,
-        'override_beta': ob, 'gt_transition': ot, 'max_iter': 4000, 'lr': lr, 'lr_decay': True  ,
+        'override_beta': ob, 'gt_transition': ot, 'max_iter': 4000, 'lr': lr, 'lr_decay': True,
         'opt': opt, 'opt_func': 'SGD', 'opt_stablizer': 'decouple', 'opt_sparse': False, 'fix_s': fs,
         'debug': 1, 'verbose': 0, 'algo': algo,
     }
-    algo_kwarg['data_pack'] = data_pack
 
-    res_pack = train_func_torchy(**algo_kwarg)
+    config = Dict(algo_kwarg, data_kwarg)
+    config.grad_method = 'auto'
+    config.normalize_gradient = True
+    config.GPU = True
+    res_pack = make_estimation(data_pack, config)
 
     cb = {**data_kwarg, **algo_kwarg, **res_pack}
     return cb

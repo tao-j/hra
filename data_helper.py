@@ -5,7 +5,8 @@ import matplotlib.pyplot as plt
 
 from addict import Dict
 
-def generate_data(data_seed=None, 
+
+def generate_data(data_seed=None,
                   n_items=10, n_judges=10, n_pairs=200,
                   shrink_b=30, beta_gen_func='shrink', s_gen_func='spacing',
                   visualization=False):
@@ -15,41 +16,41 @@ def generate_data(data_seed=None,
     np.random.seed(data_seed)
     
     if s_gen_func == 'random':
-        s = np.sort(np.random.normal(loc=1.0, size=n_items))
+        s_true = np.sort(np.random.normal(loc=1.0, size=n_items))
     elif s_gen_func == 'spacing':
         po = np.arange(1., 2 * n_items + 1, 2.) - n_items
         po = po / 2 / n_items
-        s = np.log(np.power(10, po))
-    print('ground truth s', s)
+        s_true = np.log(np.power(10, po))
+    print('ground truth s', s_true)
 
     if beta_gen_func == 'manual':
         assert len(shrink_b) == n_judges
-        betas = np.array(shrink_b)
+        beta_true = np.array(shrink_b)
     if beta_gen_func == 'shrink':
-        betas = np.random.random(size=n_judges) / shrink_b
+        beta_true = np.random.random(size=n_judges) / shrink_b
     elif beta_gen_func == 'power':
-        betas = np.power(shrink_b, -1. * np.arange(0, n_judges))
+        beta_true = np.power(shrink_b, -1. * np.arange(0, n_judges))
     elif beta_gen_func == 'xi':
-        assert shrink_b < len(betas)
-        betas = [0.00001, 0.0001, 0.0002, 0.0005,
+        assert shrink_b < len(beta_true)
+        beta_true = [0.00001, 0.0001, 0.0002, 0.0005,
                  0.001, 0.005,
                  0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09,
                  0.1, 0.5, 1.0]
-        betas = np.ones(n_judges) * betas[shrink_b]
+        beta_true = np.ones(n_judges) * beta_true[shrink_b]
     elif beta_gen_func == 'beta':
-        betas = np.random.beta(shrink_b[0], shrink_b[1], size=n_judges)
+        beta_true = np.random.beta(shrink_b[0], shrink_b[1], size=n_judges)
     elif beta_gen_func == 'negative':
         n_positive = min(int(np.ceil(n_judges * 0.7)), n_judges - 1)
         n_negative = n_judges - n_positive
-        betas = np.array([shrink_b] * n_positive + [-shrink_b] * n_negative)
-    print('ground truth beta', betas)
+        beta_true = np.array([shrink_b] * n_positive + [-shrink_b] * n_negative)
+    print('ground truth beta', beta_true)
 
-    s -= s[0]
-    s /= s.sum()
-    s_ratio = 1. / betas[0]
-    s = s * s_ratio
-    betas = betas * s_ratio
-    print('after adjustment ', '\ns', s, '\nbeta', betas)
+    s_true -= s_true[0]
+    s_true /= s_true.sum()
+    s_ratio = 1. / beta_true[0]
+    s_true = s_true * s_ratio
+    beta_true = beta_true * s_ratio
+    print('after adjustment ', '\ns', s_true, '\nbeta', beta_true)
     
     # gumble distribution
     # def gb_cdf(x, beta):
@@ -68,16 +69,16 @@ def generate_data(data_seed=None,
     #     print(ty.sum()/100.)
     # plt.show()
 
-    data = []
-    judge_imgs = []
-    total_img = np.zeros((3, n_items, n_items), dtype=np.float)
-
+    # data = []
+    individual_imgs = []
+    population_img = np.zeros((3, n_items, n_items), dtype=np.float)
+    count_mat = np.zeros((n_judges, n_items, n_items), dtype=np.float)
 
     known_pairs_ratio = 0.1
     repeated_comps = 32
 
-    for k, beta_i in enumerate(betas):
-        data_img = np.zeros((n_items, n_items))
+    for k, beta_i in enumerate(beta_true):
+        data_img = count_mat[k]
 
         # same pair repeat
         # for i in range(n_items):
@@ -106,41 +107,41 @@ def generate_data(data_seed=None,
             i = 0
             j = 0
             while i == j:
-                i = np.random.randint(0, len(s)) # try normal dist.
-                j = np.random.randint(0, len(s))
+                i = np.random.randint(0, len(s_true)) # try normal dist.
+                j = np.random.randint(0, len(s_true))
 
             if beta_i < 0:
-                s_j = s[i] + np.random.gumbel(-0.5772*beta_i, -beta_i)
-                s_i = s[j] + np.random.gumbel(-0.5772*beta_i, -beta_i)
+                s_j = s_true[i] + np.random.gumbel(-0.5772*beta_i, -beta_i)
+                s_i = s_true[j] + np.random.gumbel(-0.5772*beta_i, -beta_i)
             else:
-                s_i = s[i] + np.random.gumbel(-0.5772*beta_i, beta_i)
-                s_j = s[j] + np.random.gumbel(-0.5772*beta_i, beta_i)
+                s_i = s_true[i] + np.random.gumbel(-0.5772*beta_i, beta_i)
+                s_j = s_true[j] + np.random.gumbel(-0.5772*beta_i, beta_i)
             if s_i > s_j:
-                data.append((i, j, k))
+                # data.append((i, j, k))
                 data_img[j][i] += 1. # rgb
             else:
-                data.append((j, i, k))
+                # data.append((j, i, k))
                 data_img[i][j] += 1. # rgb
 
-        total_img[2] += data_img
-        judge_imgs.append(data_img / np.max(np.max(data_img)))
+        population_img[2] += data_img
+        individual_imgs.append(data_img / np.max(np.max(data_img)))
         
-    judge_imgs.append(total_img.transpose(1, 2, 0) / np.max(np.max(total_img)))
+    individual_imgs.append(population_img.transpose(1, 2, 0) / np.max(np.max(population_img)))
     
     data_pack = Dict()
     data_pack.n_items = n_items
     data_pack.n_judges = n_judges
     data_pack.n_pairs = n_pairs
-    data_pack.s = s
-    data_pack.beta = betas
+    data_pack.s_true = s_true
+    data_pack.beta_true = beta_true
+    data_pack.count_mat = count_mat
     if visualization:
-        show_images(judge_imgs, cols=1)
-        print(data_pack, len(data))
-    data_pack.data = data
+        show_images(individual_imgs, cols=1)
+        print(data_pack, n_pairs)
     return data_pack
 
 
-def show_images(images, cols = 1, titles = None):
+def show_images(images, cols=1, titles=None):
     """Display a list of images in a single figure with matplotlib.
     
     Parameters

@@ -118,21 +118,19 @@ data_names = [
 ]
 
 data_names = [
-    # 'be-b1,10-j8-i100-p8000',
-    # 'ma-b1.0,0.1,1.0,0.1,1.0,0.1,1.0,0.1-j8-i100-p8000',
-    # 'po-b10-j16-i100-p8000', #nan
+    'be-b1,10-j8-i100-p8000',
+    'ma-b1.0,0.1,1.0,0.1,1.0,0.1,1.0,0.1-j8-i100-p8000',
+    'po-b10-j16-i100-p8000',
     'be-b1,10-j8-i100-p80000',
 ]
 
 
 algo_names = [
     'btl-spectral-do',
-#     'btl-spectral-mle',
+    'btl-spectral-mle',
 ##     'btl-random-mle',
     'gbtl-spectral_all-do',
 ]
-
-algo_names = []
 
 algo = [
     'gbtl-spectral_all-mle',
@@ -151,7 +149,7 @@ algo = [
     # 'gbtlinv-disturb_random_b_fix^s-mle',  #
 ]
 
-algo = ['gbtlneg-spectral_all-mle',]
+# algo = ['gbtlneg-spectral_all-mle',]
 
 storage = Dict()
 acc = Dict()
@@ -163,20 +161,17 @@ import pprint
 # pprint.pprint(json.loads(open('res').read().replace("'", '"').replace('nan', '0.0')))
 # exit()
 
-for lr in [0.0005, 0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1.0][0:2]:
+for lr in [0.0005, 0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1.0][0:4]:
     for al in algo:
         algo_names.append(al+'-'+str(lr))
 
-data_seeds = [1313, 3838, 6262, 1338, 1362, 3862, 6238, 6213, 3813, 13, 38, 62]
+data_seeds = [1313, 3838, 6262, 1338, 1362, 3862, 6238, 6213, 3813, 13, 38, 62][4:5]
 start_t = time.time()
 
 this_idx = 0
-res_betas = []
-for seed in data_seeds[4:5]:
-
+for seed in data_seeds:
     for data_name in data_names:
         data_pack, data_kwarg = gen_data(data_name, seed)
-
         for algo_name in algo_names:
             st = data_name + '+' + algo_name
             if st not in storage:
@@ -186,9 +181,6 @@ for seed in data_seeds[4:5]:
 
             try:
                 all_pack = run_algo(data_pack, data_kwarg, algo_name, seed)
-                res_betas.append(all_pack['res_beta'])
-                # all_pack['data_pack'].pop('data')
-                # storage[st].append(all_pack)
                 score = get_eval(Dict(all_pack))
                 acc[st].append(score)
                 print(st, score, '\n--------------------\n')

@@ -731,7 +731,7 @@ one judege, see if we can recover beta.
 fix s, only optimize beta.
 
 inspect why sometimes gbtl fails,
-likelihood should be similar gbtl-neg/inv.
+likelihood should be similar gbtl-neg/gamma.
 For example
 ```
 36	be-b1,10-j8-i100-p8000	btl-spectral-do	0.9786
