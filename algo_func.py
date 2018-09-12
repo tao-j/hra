@@ -17,7 +17,7 @@ class Initializer:
     def calculate_probability_ground_truth(self, s_true, beta_true):
         m_size = beta_true.shape[0]
         n_size = s_true.shape[0]
-        t = np.zeros((m_size, n_size, n_size), dtype=np.float)
+        t = np.zeros((m_size, n_size, n_size), dtype=np.double)
         for k in range(m_size):
             for i in range(n_size):
                 for j in range(n_size):
@@ -30,7 +30,7 @@ class Initializer:
         import copy
         prob_mat = copy.deepcopy(prob_mat)
         n_size = prob_mat.shape[0]
-        prob_mat = prob_mat.astype(np.float)
+        prob_mat = prob_mat.astype(np.double)
         for i in range(n_size):
             for j in range(i + 1, n_size):
                 if (prob_mat[i][j] + prob_mat[j][i]) != 0:
@@ -236,14 +236,15 @@ class RankAggregation:
         self.s_list = []
 
         # TODO if config.backend == 'torch':
-        self.dtype = torch.float
+        self.dtype = torch.double
         if config.GPU:
             self.device = torch.device('cuda')
         else:
             self.device = torch.device('cpu')
         self.s = torch.tensor(np.zeros(self.n_items), device=self.device, dtype=self.dtype, requires_grad=True)
         self.count_mat = torch.tensor(data_pack.count_mat, device=self.device, dtype=self.dtype)
-        self.replicator = torch.tensor(torch.FloatTensor(np.ones([self.n_items, self.n_items])).to(self.device))
+        self.replicator = torch.tensor(np.ones([self.n_items, self.n_items]),
+                                               dtype=self.dtype, device=self.device)
         torch.manual_seed(self.init_seed)
         if config.opt_func == 'SGD':
             self.opt_func = torch.optim.SGD
@@ -284,6 +285,9 @@ class RankAggregation:
 
         if not self.config.fix_s:
             self.post_process()
+
+        self.pr_list.append(self.pr.cpu().numpy())
+        self.s_list.append(np.linalg.norm(self.s.data.cpu().numpy() - self.s_true))
 
     def post_process(self):
         raise NotImplementedError
@@ -361,7 +365,7 @@ class GBTLGamma(GBTL):
         ex = si_minus_sj.view((1,) + si_minus_sj.shape)
         iv = self.gamma.view(self.gamma.shape + (1, 1))
         qu = ex * iv
-        mask = (qu > 11).float()
+        mask = (qu > 11).double()
         q_approx = mask * qu
         q_exact = qu - q_approx
         lg = torch.log(torch.exp(q_exact) + 1) + q_approx
@@ -403,7 +407,7 @@ class GBTLBeta(GBTL):
         ex = si_minus_sj.view((1,) + si_minus_sj.shape)
         ep = self.beta.view(self.beta.shape + (1, 1))
         qu = ex / ep
-        mask = (qu > 11).float()
+        mask = (qu > 11).double()
         q_approx = mask * qu
         q_exact = qu - q_approx
         lg = torch.log(torch.exp(q_exact) + 1) + q_approx
@@ -444,7 +448,7 @@ class GBTLEpsilon(GBTL):
         ex = si_minus_sj.view((1,) + si_minus_sj.shape)
         ep = (self.eps * self.eps).view(self.eps.shape + (1, 1))
         qu = ex / ep
-        mask = (qu > 11).float()
+        mask = (qu > 11).double()
         q_approx = mask * qu
         q_exact = qu - q_approx
         lg = torch.log(torch.exp(q_exact) + 1) + q_approx
@@ -497,4 +501,9 @@ def make_estimation(data_pack, config):
     res_pack.beta_est = beta_est
     print(res_pack)
     res_pack.data_pack = data_pack
+
+    plt.plot(algorithm.pr_list[10:])
+
+    plt.plot(algorithm.s_true[10:])
+
     return res_pack

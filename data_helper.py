@@ -71,8 +71,8 @@ def generate_data(data_seed=None,
 
     # data = []
     individual_imgs = []
-    population_img = np.zeros((3, n_items, n_items), dtype=np.float)
-    count_mat = np.zeros((n_judges, n_items, n_items), dtype=np.float)
+    population_img = np.zeros((3, n_items, n_items), dtype=np.double)
+    count_mat = np.ones((n_judges, n_items, n_items), dtype=np.double)
 
     known_pairs_ratio = 0.1
     repeated_comps = 32

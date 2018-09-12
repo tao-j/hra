@@ -97,7 +97,7 @@ def run_algo(data_pack, data_kwarg, algo_name, seed):
     config = Dict(algo_kwarg, data_kwarg)
     config.grad_method = 'auto'
     config.normalize_gradient = True
-    config.GPU = True
+    config.GPU = False
     res_pack = make_estimation(data_pack, config)
 
     cb = {**data_kwarg, **algo_kwarg, **res_pack}
