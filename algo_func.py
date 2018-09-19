@@ -5,13 +5,13 @@ import scipy
 import scipy.stats
 import time
 import scipy.sparse.linalg
-import matplotlib.pyplot as plt
 from addict import Dict
 
 
 class Initializer:
     def __init__(self, data_pack):
         self.data_pack = data_pack
+        self.verbose = False
 
     @staticmethod
     def calculate_probability_ground_truth(self, s_true, beta_true):
@@ -29,6 +29,8 @@ class Initializer:
     def calculate_transition(self, prob_mat):
         import copy
         prob_mat = copy.deepcopy(prob_mat)
+        # NOTE: adjusted here
+        prob_mat += 1.
         n_size = prob_mat.shape[0]
         prob_mat = prob_mat.astype(np.double)
         for i in range(n_size):
@@ -81,14 +83,18 @@ class PopulationInitializer(Initializer):
 
 
 class IndividualInitializer(Initializer):
-    def get_initialization_point(self, verbose=False, popular_correction=True):
+    def __init__(self, data_pack, config):
+        super(IndividualInitializer, self).__init__(data_pack)
+        self.popular_correction = config.popular_correction
+
+    def get_initialization_point(self):
         p = self.data_pack.count_mat
         # shape is n_judges n_items*n_items^T
         n_judges = p.shape[0]
         n_items = p.shape[1]
 
         mixed = p.sum(axis=0)
-        if popular_correction:
+        if self.popular_correction:
             p = np.concatenate([mixed[np.newaxis, :], p], axis=0)
             n_judges += 1
 
@@ -135,7 +141,7 @@ class IndividualInitializer(Initializer):
             b[0] += 1. / w[0]
 
             # u1 = np.matmul(np.matmul(np.linalg.gamma(np.matmul(A.T, A)), A.T), b)
-            u = scipy.sparse.linalg.lsqr(a, b, show=verbose)[0]
+            u = scipy.sparse.linalg.lsqr(a, b, show=self.verbose)[0]
 
             q = np.hstack([np.log(u)])
             qs.append(q)
@@ -156,7 +162,7 @@ class IndividualInitializer(Initializer):
             b[s_i] = qs[0][s_i]
 
         # qq1 = np.matmul(np.matmul(np.linalg.gamma(np.matmul(A.T, A)), A.T), b)
-        qq = scipy.sparse.linalg.lsqr(a, b, show=verbose)[0]
+        qq = scipy.sparse.linalg.lsqr(a, b, show=self.verbose)[0]
 
         # assignment for return
         for s_i in range(n_items_1):
@@ -164,7 +170,7 @@ class IndividualInitializer(Initializer):
         for b_i in range(n_judges - 1):
             beta_init[b_i + 1] = qq[n_items_1 + b_i]
 
-        if popular_correction:
+        if self.popular_correction:
             beta_init = beta_init[1:]
 
         return s_init, beta_init
@@ -213,6 +219,8 @@ class RankAggregation:
     def __init__(self, data_pack, config):
         self.config = config
         self.data_pack = data_pack
+
+        self.verbose = False
 
         self.n_items = data_pack.n_items
         self.n_pairs = data_pack.n_pairs
@@ -286,7 +294,7 @@ class RankAggregation:
         if not self.config.fix_s:
             self.post_process()
 
-        self.pr_list.append(self.pr.cpu().numpy())
+        self.pr_list.append(self.pr.detach().cpu().numpy())
         self.s_list.append(np.linalg.norm(self.s.data.cpu().numpy() - self.s_true))
 
     def post_process(self):
@@ -331,19 +339,20 @@ class GBTL(RankAggregation):
         super(GBTL, self).__init__(data_pack, config)
         self.beta_init = None
         self.beta_true = data_pack.beta_true
+        self.popular_correction=self.config.popular_correction
 
     def get_initializer(self):
         if self.config.init_method == 'random':
             initializer = RandomInitializer(self.data_pack)
         elif self.config.init_method == 'spectral':
-            initializer = IndividualInitializer(self.data_pack)
+            initializer = IndividualInitializer(self.data_pack, self.config)
         elif self.config.init_method == 'ground_truth_disturb':
             initializer = GroundTruthInitializer(self.data_pack)
         else:
             raise NotImplementedError
 
         self.s_init, self.beta_init =\
-            initializer.get_initialization_point(popular_correction=self.config.popular_correction)
+            initializer.get_initialization_point()
 
 
 class GBTLGamma(GBTL):
@@ -488,22 +497,21 @@ def make_estimation(data_pack, config):
 
     beta_est = algorithm.consolidate_result()
     s_est = algorithm.s.data.cpu().numpy()
-    print(np.sum(beta_est > 0), 'sum')
+    # print(np.sum(beta_est > 0), 'sum')
     if np.sum(beta_est > 0) < np.sum(beta_est < 0):
         beta_est = -beta_est
         s_est = -s_est
-        print('reversed')
+        # print('reversed')
 
     rank = np.argsort(s_est)
-    print(rank)
+    # print(rank)
     res_pack = Dict()
     res_pack.s_est = s_est
     res_pack.beta_est = beta_est
-    print(res_pack)
+    # print(res_pack)
     res_pack.data_pack = data_pack
 
-    plt.plot(algorithm.pr_list[10:])
-
-    plt.plot(algorithm.s_true[10:])
+    res_pack.pr_list = algorithm.pr_list[10:]
+    res_pack.s_list = algorithm.s_list[10:]
 
     return res_pack

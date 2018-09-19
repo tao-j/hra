@@ -28,13 +28,14 @@ def get_eval(all_pack):
     return acc
 
 
-def gen_data(data_name, seed):
+def gen_data(data_name, seed, save_path=None):
     dn = data_name.split('-')
 
     dn1_split = list(map(float, dn[1][1:].split(',')))
     dn_lookup = {
         'po': ('power', dn1_split[0]),
         'be': ('beta', dn1_split),
+        'ga': ('gamma', dn1_split),
         'rd': ('shrink', dn1_split[0]),
         'ne': ('negative', dn1_split[0]),
         'ma': ('manual', dn1_split)
@@ -43,7 +44,19 @@ def gen_data(data_name, seed):
     
     nj = int(dn[2][1:])
     ni = int(dn[3][1:])
-    np = int(dn[4][1:])
+    np = 0
+    known_pairs_ratio = 0.
+    repeated_comps = 0
+    gen_by_pair = False
+    if dn[4][0] == 'p':
+        np = int(dn[4][1:])
+    else:
+        # known_pairs_ratio = 0.1  # d/n sampling probability
+        # repeated_comps = 32  # k number of repeated comparison
+        known_pairs_ratio, repeated_comps = dn[4][0:].split('k')
+        known_pairs_ratio = float(known_pairs_ratio)
+        repeated_comps = int(repeated_comps)
+        gen_by_pair = True
     data_kwarg = {
         'data_seed': seed,
         'shrink_b': sb,
@@ -51,7 +64,11 @@ def gen_data(data_name, seed):
         'n_items': ni,
         'n_judges': nj,
         'n_pairs': np,
-        'visualization': 0,
+        'visualization': 1,
+        'save_path': save_path,
+        'known_pairs_ratio': known_pairs_ratio,
+        'repeated_comps': repeated_comps,
+        'gen_by_pair': gen_by_pair
     }
     data_pack = generate_data(**data_kwarg)
     return data_pack, data_kwarg
@@ -95,9 +112,10 @@ def run_algo(data_pack, data_kwarg, algo_name, seed):
     }
 
     config = Dict(algo_kwarg, data_kwarg)
+    config.popular_correction = True
     config.grad_method = 'auto'
     config.normalize_gradient = True
-    config.GPU = False
+    config.GPU = True
     res_pack = make_estimation(data_pack, config)
 
     cb = {**data_kwarg, **algo_kwarg, **res_pack}

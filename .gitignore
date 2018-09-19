@@ -7,3 +7,5 @@
 *.txt
 *.json
 *.csv
+*.log
+/.config

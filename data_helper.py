@@ -1,6 +1,8 @@
 import numpy as np
 import time
 
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 from addict import Dict
@@ -9,7 +11,8 @@ from addict import Dict
 def generate_data(data_seed=None,
                   n_items=10, n_judges=10, n_pairs=200,
                   shrink_b=30, beta_gen_func='shrink', s_gen_func='spacing',
-                  visualization=False):
+                  visualization=False, save_path=None,
+                  gen_by_pair=False, known_pairs_ratio=0.1, repeated_comps=32):
 
     if not data_seed:
         data_seed = int(time.time() * 10e7) % 2**32
@@ -21,7 +24,7 @@ def generate_data(data_seed=None,
         po = np.arange(1., 2 * n_items + 1, 2.) - n_items
         po = po / 2 / n_items
         s_true = np.log(np.power(10, po))
-    print('ground truth s', s_true)
+        # print('ground truth s', s_true)
 
     if beta_gen_func == 'manual':
         assert len(shrink_b) == n_judges
@@ -39,18 +42,21 @@ def generate_data(data_seed=None,
         beta_true = np.ones(n_judges) * beta_true[shrink_b]
     elif beta_gen_func == 'beta':
         beta_true = np.random.beta(shrink_b[0], shrink_b[1], size=n_judges)
+    elif beta_gen_func == 'gamma':
+        beta_true = np.random.gamma(shrink_b[0], shrink_b[1], size=n_judges)
     elif beta_gen_func == 'negative':
         n_positive = min(int(np.ceil(n_judges * 0.7)), n_judges - 1)
         n_negative = n_judges - n_positive
         beta_true = np.array([shrink_b] * n_positive + [-shrink_b] * n_negative)
-    print('ground truth beta', beta_true)
+    # print('ground truth beta', beta_true)
 
     s_true -= s_true[0]
     s_true /= s_true.sum()
     s_ratio = 1. / beta_true[0]
     s_true = s_true * s_ratio
     beta_true = beta_true * s_ratio
-    print('after adjustment ', '\ns', s_true, '\nbeta', beta_true)
+    # beta_true[0:len(beta_true)//3] *= -1.
+    # print('after adjustment ', '\ns', s_true, '\nbeta', beta_true)
     
     # gumble distribution
     # def gb_cdf(x, beta):
@@ -72,56 +78,57 @@ def generate_data(data_seed=None,
     # data = []
     individual_imgs = []
     population_img = np.zeros((3, n_items, n_items), dtype=np.double)
-    count_mat = np.ones((n_judges, n_items, n_items), dtype=np.double)
+    # TODO: np.ones is could act as a regularization, or 1.0 0.1 0.01
+    count_mat = np.zeros((n_judges, n_items, n_items), dtype=np.double)
 
-    known_pairs_ratio = 0.1
-    repeated_comps = 32
+    # known_pairs_ratio = 0.1  # d/n sampling probability
+    # repeated_comps = 32  # k number of repeated comparison
+    if gen_by_pair:
+        n_pairs = 0
 
     for k, beta_i in enumerate(beta_true):
         data_img = count_mat[k]
 
-        # same pair repeat
-        # for i in range(n_items):
-        #     for j in range(n_items):
-        #         if i == j:
-        #             continue
-        #
-        #         if np.random.random() <= known_pairs_ratio:
-        #             for _ in range(repeated_comps):
-        #                 if beta_i < 0:
-        #                     s_j = s[i] + np.random.gumbel(-0.5772 * beta_i, -beta_i)
-        #                     s_i = s[j] + np.random.gumbel(-0.5772 * beta_i, -beta_i)
-        #                 else:
-        #                     s_i = s[i] + np.random.gumbel(-0.5772 * beta_i, beta_i)
-        #                     s_j = s[j] + np.random.gumbel(-0.5772 * beta_i, beta_i)
-        #                 if s_i > s_j:
-        #                     data.append((i, j, k))
-        #                     data_img[j][i] += 1.  # rgb
-        #                 else:
-        #                     data.append((j, i, k))
-        #                     data_img[i][j] += 1.  # rgb
+        if gen_by_pair:
+            # same pair repeat
+            for i in range(n_items):
+                for j in range(n_items):
+                    if i == j:
+                        continue
+                    # TODO: this is for each judge, then population compared is not the ratio
+                    if np.random.random() <= known_pairs_ratio:
+                        for _ in range(repeated_comps):
+                            if beta_i < 0:
+                                s_j = s_true[i] + np.random.gumbel(-0.5772 * beta_i, -beta_i)
+                                s_i = s_true[j] + np.random.gumbel(-0.5772 * beta_i, -beta_i)
+                            else:
+                                s_i = s_true[i] + np.random.gumbel(-0.5772 * beta_i, beta_i)
+                                s_j = s_true[j] + np.random.gumbel(-0.5772 * beta_i, beta_i)
+                            if s_i > s_j:
+                                data_img[j][i] += 1.  # rgb
+                            else:
+                                data_img[i][j] += 1.  # rgb
+                            n_pairs += 1
+        else:
+            # random pair
+            for _ in range(n_pairs):
+                # ensure that generate two different items for comparison
+                i = 0
+                j = 0
+                while i == j:
+                    i = np.random.randint(0, len(s_true)) # try normal dist.
+                    j = np.random.randint(0, len(s_true))
 
-        # random pair
-        for _ in range(n_pairs):
-            # ensure that generate two different items for comparison
-            i = 0
-            j = 0
-            while i == j:
-                i = np.random.randint(0, len(s_true)) # try normal dist.
-                j = np.random.randint(0, len(s_true))
-
-            if beta_i < 0:
-                s_j = s_true[i] + np.random.gumbel(-0.5772*beta_i, -beta_i)
-                s_i = s_true[j] + np.random.gumbel(-0.5772*beta_i, -beta_i)
-            else:
-                s_i = s_true[i] + np.random.gumbel(-0.5772*beta_i, beta_i)
-                s_j = s_true[j] + np.random.gumbel(-0.5772*beta_i, beta_i)
-            if s_i > s_j:
-                # data.append((i, j, k))
-                data_img[j][i] += 1. # rgb
-            else:
-                # data.append((j, i, k))
-                data_img[i][j] += 1. # rgb
+                if beta_i < 0:
+                    s_j = s_true[i] + np.random.gumbel(-0.5772*beta_i, -beta_i)
+                    s_i = s_true[j] + np.random.gumbel(-0.5772*beta_i, -beta_i)
+                else:
+                    s_i = s_true[i] + np.random.gumbel(-0.5772*beta_i, beta_i)
+                    s_j = s_true[j] + np.random.gumbel(-0.5772*beta_i, beta_i)
+                if s_i > s_j:
+                    data_img[j][i] += 1.  # rgb
+                else:
+                    data_img[i][j] += 1.  # rgb
 
         population_img[2] += data_img
         individual_imgs.append(data_img / np.max(np.max(data_img)))
@@ -136,12 +143,12 @@ def generate_data(data_seed=None,
     data_pack.beta_true = beta_true
     data_pack.count_mat = count_mat
     if visualization:
-        show_images(individual_imgs, cols=1)
-        print(data_pack, n_pairs)
+        show_images(individual_imgs[:25], cols=5, save_path=save_path)
+        # print(data_pack, n_pairs)
     return data_pack
 
 
-def show_images(images, cols=1, titles=None):
+def show_images(images, cols=1, titles=None, save_path=None):
     """Display a list of images in a single figure with matplotlib.
     
     Parameters
@@ -165,4 +172,8 @@ def show_images(images, cols=1, titles=None):
         plt.imshow(image)
         a.set_title(title)
     fig.set_size_inches(np.array(fig.get_size_inches()) * n_images)
-    plt.show()
+    if save_path:
+        plt.savefig(save_path, bbox_inches='tight')
+        plt.close()
+    else:
+        plt.show()
