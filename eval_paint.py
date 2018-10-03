@@ -37,6 +37,7 @@ def gen_data(data_name, seed, save_path=None):
         'be': ('beta', dn1_split),
         'ga': ('gamma', dn1_split),
         'rd': ('shrink', dn1_split[0]),
+        'ex': ('ex', dn1_split[0]),
         'ne': ('negative', dn1_split[0]),
         'ma': ('manual', dn1_split)
     }
@@ -106,42 +107,22 @@ def run_algo(data_pack, data_kwarg, algo_name, seed):
     
     algo_kwarg = {
         'init_seed': seed, 'init_method': init,
-        'override_beta': ob, 'gt_transition': ot, 'max_iter': 4000, 'lr': lr, 'lr_decay': True,
+        'override_beta': ob, 'gt_transition': ot, 'max_iter': 2000, 'lr': lr, 'lr_decay': True,
         'opt': opt, 'opt_func': 'SGD', 'opt_stablizer': 'decouple', 'opt_sparse': False, 'fix_s': fs,
         'debug': 1, 'verbose': 0, 'algo': algo,
     }
 
     config = Dict(algo_kwarg, data_kwarg)
-    config.popular_correction = True
+    config.ground_truth_prob_mat = False
+    config.popular_correction = False
     config.grad_method = 'auto'
     config.normalize_gradient = True
     config.GPU = True
+    config.linesearch = False
+    config.prob_regularization = False
+    config.err_const = 10e-23
     res_pack = make_estimation(data_pack, config)
 
     cb = {**data_kwarg, **algo_kwarg, **res_pack}
     return cb
 
-
-def async_train(fp, args_ls):
-    
-    def f(q, fp, args_l):
-        print(args_l[1])
-        res = fp(*args_l)
-        q.put(res)
-    result_err = []
-
-    q = mp.Queue()
-    ps = []
-    for args_l in args_ls:
-        # rets = pool.apply_async(f, (q, np.arange(pid)))
-        p = mp.Process(target=f, args=(q, fp, args_l))
-        ps.append(p)
-        p.start()
-
-    for p in ps:
-        result_err.append(q.get())
-
-    for p in ps:
-        p.join()
-    
-    return result_err

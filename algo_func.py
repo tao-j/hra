@@ -9,12 +9,13 @@ from addict import Dict
 
 
 class Initializer:
-    def __init__(self, data_pack):
+    def __init__(self, data_pack, config):
         self.data_pack = data_pack
+        self.config = config
         self.verbose = False
 
     @staticmethod
-    def calculate_probability_ground_truth(self, s_true, beta_true):
+    def calculate_probability_ground_truth(s_true, beta_true):
         m_size = beta_true.shape[0]
         n_size = s_true.shape[0]
         t = np.zeros((m_size, n_size, n_size), dtype=np.double)
@@ -26,11 +27,12 @@ class Initializer:
         return t
 
     @staticmethod
-    def calculate_transition(self, prob_mat):
+    def calculate_transition(prob_mat, prob_regularization=False):
         import copy
         prob_mat = copy.deepcopy(prob_mat)
         # NOTE: adjusted here
-        prob_mat += 1.
+        if prob_regularization:
+            prob_mat += 1.
         n_size = prob_mat.shape[0]
         prob_mat = prob_mat.astype(np.double)
         for i in range(n_size):
@@ -50,7 +52,7 @@ class Initializer:
         return t
 
     @staticmethod
-    def calculate_stationary_distribution(self, t):
+    def calculate_stationary_distribution(t):
         m_size = t.shape[0]
 
         e = t - np.eye(m_size)
@@ -67,15 +69,18 @@ class Initializer:
 
 class PopulationInitializer(Initializer):
     def get_initialization_point(self):
-        p = self.data_pack.count_mat
+        if self.config.ground_truth_prob_mat:
+            p = self.calculate_probability_ground_truth(self.data_pack.s_true, self.data_pack.beta_true)
+        else:
+            p = self.data_pack.count_mat
         # shape is n_judges n_items*n_items^T
         n_judges = p.shape[0]
         n_items = p.shape[1]
 
         # ------------ use all judge info to calc
         mixed = p.sum(axis=0)
-        t = self.calculate_transition(self, mixed)
-        sp = np.log(self.calculate_stationary_distribution(self, t))
+        t = self.calculate_transition(mixed)
+        sp = np.log(self.calculate_stationary_distribution(t))
         # normalize s for easy comparison
         sp -= np.min(sp)
         sp /= sp.sum()
@@ -84,11 +89,14 @@ class PopulationInitializer(Initializer):
 
 class IndividualInitializer(Initializer):
     def __init__(self, data_pack, config):
-        super(IndividualInitializer, self).__init__(data_pack)
+        super(IndividualInitializer, self).__init__(data_pack, config)
         self.popular_correction = config.popular_correction
 
     def get_initialization_point(self):
-        p = self.data_pack.count_mat
+        if self.config.ground_truth_prob_mat:
+            p = self.calculate_probability_ground_truth(self.data_pack.s_true, self.data_pack.beta_true)
+        else:
+            p = self.data_pack.count_mat
         # shape is n_judges n_items*n_items^T
         n_judges = p.shape[0]
         n_items = p.shape[1]
@@ -109,9 +117,9 @@ class IndividualInitializer(Initializer):
         qs = []
         for c_i in range(n_judges):
             d = p[c_i]
-            t = self.calculate_transition(self, d)
+            t = self.calculate_transition(d, self.config.prob_regularization)
 
-            w = self.calculate_stationary_distribution(self, t)
+            w = self.calculate_stationary_distribution(t)
             # bol = w == 0
             # idx = 0
             # for i in range(bol.shape[0]):
@@ -134,11 +142,11 @@ class IndividualInitializer(Initializer):
             #     w += wmin
             #     w = w / w.sum()
 
-            a = np.ones(n_items - 1) - np.diag(1. / w[1:])
-            a = np.vstack([np.ones((1, s_init.shape[0] - 1)), a])
+            a = np.ones(n_items - 1) - np.diag(1. / (w[1:] + self.config.err_const))
+            a = np.vstack([np.ones((1, n_items - 1)), a])
 
-            b = np.array([-1.] * s_init.shape[0])
-            b[0] += 1. / w[0]
+            b = np.array([-1.] * n_items)
+            b[0] += 1. / (w[0] + self.config.err_const)
 
             # u1 = np.matmul(np.matmul(np.linalg.gamma(np.matmul(A.T, A)), A.T), b)
             u = scipy.sparse.linalg.lsqr(a, b, show=self.verbose)[0]
@@ -236,6 +244,7 @@ class RankAggregation:
 
         self.pr = None
         self.parameters = []
+        self.named_parameters = {}
         self.optimizer = None
         self.sched = None
 
@@ -264,13 +273,27 @@ class RankAggregation:
     def setup_optimizer(self):
         if not self.config.fix_s or self.config.algo == 'simple':
             self.parameters.append(self.s)
+            self.named_parameters['s'] = self.s
         self.optimizer = self.opt_func(self.parameters, lr=self.config.lr)
-        self.sched = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, 'min', verbose=True, patience=1000)
+        self.sched = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, 'min', verbose=True, patience=500)
+        return self.config.opt
 
     def initialize(self):
         raise NotImplementedError
 
+    def init_print(self):
+        for k, v in self.named_parameters.items():
+            if k == 'eps':
+                print('beta delegated by ' + k, v ** 2)
+            elif k == 'gamma':
+                print('beta delegated by ' + k, 1. / v)
+            else:
+                print(k, v)
+
     def compute_likelihood(self):
+        raise NotImplementedError
+
+    def compute_likelihood_np(self, s, beta):
         raise NotImplementedError
 
     def optimization_step(self):
@@ -305,14 +328,15 @@ class BTLNaive(RankAggregation):
     def __init__(self, data_pack, config):
         super(BTLNaive, self).__init__(data_pack, config)
         self.parameters.append(self.s)
+        self.named_parameters['s'] = self.s
 
     def initialize(self):
         if self.config.init_method == 'random':
-            initializer = RandomInitializer(self.data_pack)
+            initializer = RandomInitializer(self.data_pack, self.config)
         elif self.config.init_method == 'spectral':
-            initializer = PopulationInitializer(self.data_pack)
+            initializer = PopulationInitializer(self.data_pack, self.config)
         elif self.config.init_method == 'ground_truth_disturb':
-            initializer = GroundTruthInitializer(self.data_pack)
+            initializer = GroundTruthInitializer(self.data_pack, self.config)
         else:
             raise NotImplementedError
 
@@ -343,11 +367,11 @@ class GBTL(RankAggregation):
 
     def get_initializer(self):
         if self.config.init_method == 'random':
-            initializer = RandomInitializer(self.data_pack)
+            initializer = RandomInitializer(self.data_pack, self.config)
         elif self.config.init_method == 'spectral':
             initializer = IndividualInitializer(self.data_pack, self.config)
         elif self.config.init_method == 'ground_truth_disturb':
-            initializer = GroundTruthInitializer(self.data_pack)
+            initializer = GroundTruthInitializer(self.data_pack, self.config)
         else:
             raise NotImplementedError
 
@@ -360,6 +384,7 @@ class GBTLGamma(GBTL):
         super(GBTLGamma, self).__init__(data_pack, config)
         self.gamma = torch.tensor(np.zeros(self.n_judges), device=self.device, dtype=self.dtype, requires_grad=True)
         self.parameters.append(self.gamma)
+        self.named_parameters['gamma'] = self.gamma
 
     def initialize(self):
         self.get_initializer()
@@ -401,6 +426,7 @@ class GBTLBeta(GBTL):
         super(GBTLBeta, self).__init__(data_pack, config)
         self.beta = torch.tensor(np.zeros(self.n_judges), device=self.device, dtype=self.dtype, requires_grad=True)
         self.parameters.append(self.beta)
+        self.named_parameters['beta'] = self.beta
         self.beta_true = data_pack.beta_true
 
     def initialize(self):
@@ -443,6 +469,7 @@ class GBTLEpsilon(GBTL):
         super(GBTLEpsilon, self).__init__(data_pack, config)
         self.eps = torch.tensor(np.zeros(self.n_judges), device=self.device, dtype=self.dtype, requires_grad=True)
         self.parameters.append(self.eps)
+        self.named_parameters['eps'] = self.eps
 
     def initialize(self):
         self.get_initializer()
@@ -467,8 +494,8 @@ class GBTLEpsilon(GBTL):
     def post_process(self):
         self.s.data -= torch.min(self.s.data)
         idx = 0
-        s_ratio = np.sqrt(1. / self.eps.data.cpu().numpy()[idx])
-        self.eps.data = self.eps.data * s_ratio
+        s_ratio = 1. / self.eps.data.cpu().numpy()[idx]
+        self.eps.data = self.eps.data * np.sqrt(s_ratio)
         self.s.data = self.s.data * s_ratio
 
     def consolidate_result(self):

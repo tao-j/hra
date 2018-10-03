@@ -27,7 +27,7 @@ python main.py {params}
 
 if __name__ == '__main__':
 
-    base_str = '6_bl'
+    base_str = '9_ex_no'
     if not os.path.isdir(base_str):
         os.mkdir(base_str)
 
@@ -45,20 +45,32 @@ if __name__ == '__main__':
         # 'ga-b1,2-j100-i100',
         # 'ga-b1,5-j100-i100',
 
-        'be-b5,1-j100-i100',
-        'be-b16,8-j100-i100',
-        'be-b8,4-j100-i100',
-        'be-b4,2-j100-i100',
-        'be-b2,1-j100-i100',
-        'be-b8,8-j100-i100',
-        'be-b4,4-j100-i100',
-        'be-b2,2-j100-i100',
-        'be-b1,1-j100-i100',
-        'be-b1,2-j100-i100',
-        'be-b2,4-j100-i100',
-        'be-b4,8-j100-i100',
-        'be-b8,16-j100-i100',
-        'be-b1,5-j100-i100',
+        # 'be-b5,1-j100-i100',
+        # 'be-b16,8-j100-i100',
+        # 'be-b8,4-j100-i100',
+        # 'be-b4,2-j100-i100',
+        # 'be-b2,1-j100-i100',
+        # 'be-b8,8-j100-i100',
+        # 'be-b4,4-j100-i100',
+        # 'be-b2,2-j100-i100',
+        # 'be-b1,1-j100-i100',
+        # 'be-b1,2-j100-i100',
+        # 'be-b2,4-j100-i100',
+        # 'be-b4,8-j100-i100',
+        # 'be-b8,16-j100-i100',
+        # 'be-b1,5-j100-i100',
+
+        # 'ex-b0.1-j100-i100',
+        # 'ex-b0.2-j100-i100',
+        # 'ex-b0.4-j100-i100',
+        # 'ex-b0.8-j100-i100',
+        # 'ex-b1.0-j100-i100',
+        # 'ex-b1.5-j100-i100',
+        # 'ex-b2.0-j100-i100',
+        # 'ex-b4.0-j100-i100',
+        # 'ex-b6.0-j100-i100',
+
+        'ex-b1.0-j5-i5',
     ]
 
     f = open(os.path.join(base_str, base_str+'.txt'), 'w')
@@ -76,7 +88,6 @@ if __name__ == '__main__':
             'params': ' '.join(params),
             'email': email,
             'env_path': env_path,
-
         }
         sbatch = sbatch_template.format(**kwargs)
         pprint(kwargs)
@@ -84,3 +95,5 @@ if __name__ == '__main__':
         f.write(sbatch)
         f.close()
         os.system('sbatch submit.bash')
+        if os.path.isfile('submit.bash'):
+            os.remove('submit.bash')

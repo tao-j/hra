@@ -24,13 +24,15 @@ def generate_data(data_seed=None,
         po = np.arange(1., 2 * n_items + 1, 2.) - n_items
         po = po / 2 / n_items
         s_true = np.log(np.power(10, po))
-        # print('ground truth s', s_true)
+        print('ground truth s', s_true)
 
     if beta_gen_func == 'manual':
         assert len(shrink_b) == n_judges
         beta_true = np.array(shrink_b)
     if beta_gen_func == 'shrink':
         beta_true = np.random.random(size=n_judges) / shrink_b
+    if beta_gen_func == 'ex':
+        beta_true = np.random.exponential(shrink_b, size=n_judges)
     elif beta_gen_func == 'power':
         beta_true = np.power(shrink_b, -1. * np.arange(0, n_judges))
     elif beta_gen_func == 'xi':
@@ -48,15 +50,24 @@ def generate_data(data_seed=None,
         n_positive = min(int(np.ceil(n_judges * 0.7)), n_judges - 1)
         n_negative = n_judges - n_positive
         beta_true = np.array([shrink_b] * n_positive + [-shrink_b] * n_negative)
-    # print('ground truth beta', beta_true)
+    print('ground truth beta', beta_true)
+
+    # s_true = np.array([-0.3, 0.7, 0.2, 0.5, 0.1])
+    # beta_true = np.array([0.1, 2.0, 0.05, 4.0, 1.0])
+
+    beta_idx = np.argsort(np.abs(beta_true))
+    ii = beta_idx[n_judges // 2]
+    beta_true[ii], beta_true[0] = beta_true[0], beta_true[ii]
+    # TODO: move this part to estimation rather than generation
 
     s_true -= s_true[0]
-    s_true /= s_true.sum()
+    # s_true /= s_true.sum()
     s_ratio = 1. / beta_true[0]
     s_true = s_true * s_ratio
     beta_true = beta_true * s_ratio
+
     # beta_true[0:len(beta_true)//3] *= -1.
-    # print('after adjustment ', '\ns', s_true, '\nbeta', beta_true)
+    print('after adjustment ', '\ns', s_true, '\nbeta', beta_true)
     
     # gumble distribution
     # def gb_cdf(x, beta):
