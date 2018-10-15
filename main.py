@@ -29,23 +29,72 @@ if __name__ == '__main__':
         exit(-1)
 
     data_name_suffix = [
+        '0.2k1',
+        '0.4k1',
         '0.8k1',
-        '1.0k1',
-        '0.16k5',
-        '0.08k10',
-        '0.04k20',
-        '0.8k4',
-        '1.0k4',
-        '0.16k20',
-        '0.08k40',
-        '0.04k80',
+        # '1.0k1',
+        # '0.16k5',
+        # '0.08k10',
+        # '0.04k20',
+        # '0.8k4',
+        # '1.0k4',
+        # '0.16k20',
+        # '0.08k40',
+        # '0.04k80',
+        # 'p10',
+        # 'p20',
+        # 'p30',
+        # 'p40',
+        # 'p50',
+        # 'p60',
+        # 'p70',
+        # 'p80',
+        # 'p90',
+        # 'p100',
+        # 'p200',
+        # 'p300',
+        # 'p400',
+        # 'p500',
+        # 'p600',
+        # 'p700',
+        # 'p800',
+        # 'p900',
+        # 'p1000',
+        # 'p2000',
+        # 'p3000',
+        # 'p4000',
+        # 'p5000',
+        # 'p6000',
+        # 'p7000',
+        # 'p8000',
+        # 'p9000',
+        # 'p10000',
+        # 'p20000',
+        # 'p30000',
+        # 'p40000',
+        # 'p50000',
+        # 'p60000',
+        # 'p70000',
+        # 'p80000',
+        # 'p90000',
+        # 'p100000',
+        # 'p200000',
+        # 'p300000',
+        # 'p400000',
+        # 'p500000',
+        # 'p600000',
+        # 'p700000',
+        # 'p800000',
+        # 'p900000',
+        # 'p2000000'
     ]
 
     algo_names = [
-        'btl-spectral-do',
+        # 'btl-spectral-do',
         # 'btl-spectral-mle',
         # 'btl-random-mle',
-        'gbtl-spectral_all-do',
+        # 'gbtlneg-spectral_all-do',
+        # 'gbtl-spectral_all-do',
     ]
     algo = [
         'gbtl-spectral_all-mle',
@@ -54,7 +103,7 @@ if __name__ == '__main__':
         'gbtlneg-random_all-mle',  #
         'gbtlinv-spectral_all-mle',  #
         'gbtlinv-random_all-mle',  #
-
+        #
         # 'gbtl-disturb-mle',
         # 'gbtlneg-disturb-mle',  #
         # 'gbtlinv-disturb-mle',  #
@@ -64,7 +113,31 @@ if __name__ == '__main__':
         # 'gbtlinv-disturb_random_b_fix^s-mle',  #
     ]
 
+    color = [
+        'red',
+        'green',
+        'blue'
+    ]
+    paint_pairs = [
+        [
+            'gbtl-spectral_all-mle',
+            'gbtl-disturb-mle',
+            'gbtl-random_all-mle',
+        ],
+        [
+            'gbtlneg-spectral_all-mle',
+            'gbtlneg-disturb-mle',
+            'gbtlneg-random_all-mle',
+        ],
+        [
+            'gbtlinv-spectral_all-mle',
+            'gbtlinv-disturb-mle',
+            'gbtlinv-random_all-mle',
+        ],
+    ]
+
     acc = Dict()
+    err = Dict()
     # key: dn + an
     # val: [result]
 
@@ -72,7 +145,8 @@ if __name__ == '__main__':
         for al in algo:
             algo_names.append(al+'-'+str(lr))
 
-    data_seeds = [1313, 3838, 6262, 1338, 1362, 3862, 6238, 6213, 3813, 13, 38, 62][3:4]
+    # keep 2:3
+    data_seeds = [1313, 3838, 6262, 1338, 1362, 3862, 6238, 6213, 3813, 13, 38, 62][2:3]
     start_t = time.time()
 
     if eval:
@@ -80,7 +154,7 @@ if __name__ == '__main__':
         f = open(os.path.join(base_str, base_str + '.txt'), 'r')
         data_name_bases = f.read().split(' ')
 
-        for algo_name in algo_names[:2]:
+        for algo_name in algo_names[:]:
             res_table = []
             for data_name_base in data_name_bases:
                 base_dir = base_str + '_' + data_name_base
@@ -90,7 +164,8 @@ if __name__ == '__main__':
                 for suffix in data_name_suffix:
                     st = data_name_base + '-' + suffix + '+' + algo_name
                     print(st)
-                    this_row.append(np.sum(res[st]) / len(res[st]))
+                    # this_row.append(np.sum(np.abs(res[st])) / len(res[st]))
+                    this_row.append(res[st][0])
                 res_table.append(this_row)
             df = pd.DataFrame(res_table, columns=cols)
             df.to_csv(os.path.join(base_str, algo_name+'.csv'))
@@ -114,11 +189,11 @@ if __name__ == '__main__':
         #                 ax1.plot(range(len(sgd[:25])), sgd[:25], '--', color=color[idx], label='sgd '+algo_name)
         #                 ax0.plot(range(len(line)), line, color=color[idx], label='line '+algo_name)
         #                 ax1.plot(range(len(line[:25])), line[:25], color=color[idx], label='line '+algo_name)
-        #
+        #             #
         #             ax1.legend(loc='upper right', fontsize='x-small')
         #             plt.savefig(os.path.join
         #                         (base_dir,
-        #                          'summary.' + data_name_base + '-' + suffix + '.{}.png'.format(algo_name.split('-')[0])),
+        #                          'summary+random.' + data_name_base + '-' + suffix + '.{}.png'.format(algo_name.split('-')[0])),
         #                         bbox_inches='tight', dpi=96)
         #             plt.close('all')
         exit(0)
@@ -141,27 +216,33 @@ if __name__ == '__main__':
                 if st not in acc:
                     acc[st] = []
 
+                if st not in err:
+                    err[st] = []
+
                 try:
                     all_pack = run_algo(data_pack, data_kwarg, algo_name, seed)
                     all_pack = Dict(all_pack)
 
-                    plt.figure(figsize=(6, 4)).suptitle('likelihood')
-                    plt.plot(all_pack.pr_list)
-                    plt.savefig(os.path.join(base_dir, st+'.pr_list.png'), bbox_inches='tight', dpi=96)
-                    plt.close()
+                    # plt.figure(figsize=(6, 4)).suptitle('likelihood')
+                    # plt.plot(all_pack.pr_list)
+                    # plt.savefig(os.path.join(base_dir,
+                    #                          st+'.pr_list.{}.png'.format(all_pack.pr_name)),
+                    #             bbox_inches='tight', dpi=96)
+                    open(os.path.join(base_dir
+                                      , st+'.pr_list.{}.json'.format(all_pack.pr_name)), 'w'
+                                ).write(json.dumps(all_pack.pr_list))
+                    # plt.close()
 
-                    plt.figure(figsize=(6, 4)).suptitle('s')
-                    plt.plot(all_pack.s_list)
-                    plt.savefig(os.path.join(base_dir, st + '.s_list.png'), bbox_inches='tight', dpi=96)
-                    plt.close()
+                    # plt.figure(figsize=(6, 4)).suptitle('s')
+                    # plt.plot(all_pack.s_list)
+                    # plt.savefig(os.path.join(base_dir, st + '.s_list.png'), bbox_inches='tight', dpi=96)
+                    # plt.close()
 
                     score = get_eval(all_pack)
                     acc[st].append(score)
-                    if (len(all_pack.pr_list) < 1):
-                        impp = 0.
-                    else:
-                        impp = (all_pack.pr_list[0] - all_pack.pr_list[-1]) / all_pack.pr_list[-1]
-                    imp[st].append(impp)
+                    err[st].append(
+                        {'s_err': np.linalg.norm(all_pack.s_est - all_pack.data_pack.s_true),
+                         'beta_err': np.linalg.norm((all_pack.beta_est - all_pack.data_pack.beta_true))/all_pack.beta_est})
                     print(st, score, '\n--------------------\n')
                 except np.linalg.linalg.LinAlgError:
                     print("Cannot solve equation for initialization.")
@@ -173,6 +254,6 @@ if __name__ == '__main__':
                       (time.time() - start_t))
 
     pprint.pprint(acc)
-    pprint.pprint(imp)
-    acc['imp'] = imp
+    pprint.pprint(err)
+    acc['err'] = err
     open(os.path.join(base_dir, data_name_base+'.json'), 'w').write(json.dumps(acc, indent=4))

@@ -27,7 +27,7 @@ python main.py {params}
 
 if __name__ == '__main__':
 
-    base_str = '9_ex_no'
+    base_str = '0_temp'
     if not os.path.isdir(base_str):
         os.mkdir(base_str)
 
@@ -58,7 +58,7 @@ if __name__ == '__main__':
         # 'be-b2,4-j100-i100',
         # 'be-b4,8-j100-i100',
         # 'be-b8,16-j100-i100',
-        # 'be-b1,5-j100-i100',
+        'be-b1,5-j100-i100',
 
         # 'ex-b0.1-j100-i100',
         # 'ex-b0.2-j100-i100',
@@ -70,7 +70,8 @@ if __name__ == '__main__':
         # 'ex-b4.0-j100-i100',
         # 'ex-b6.0-j100-i100',
 
-        'ex-b1.0-j5-i5',
+        # 'ex-b1.0-j5-i5',
+        # 'be-b1,5-j100-i100'
     ]
 
     f = open(os.path.join(base_str, base_str+'.txt'), 'w')

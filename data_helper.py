@@ -12,53 +12,60 @@ def generate_data(data_seed=None,
                   n_items=10, n_judges=10, n_pairs=200,
                   shrink_b=30, beta_gen_func='shrink', s_gen_func='spacing',
                   visualization=False, save_path=None,
-                  gen_by_pair=False, known_pairs_ratio=0.1, repeated_comps=32):
+                  gen_by_pair=False, known_pairs_ratio=0.1, repeated_comps=32,
+                  beta_true=None, s_true=None):
 
     if not data_seed:
         data_seed = int(time.time() * 10e7) % 2**32
     np.random.seed(data_seed)
-    
-    if s_gen_func == 'random':
-        s_true = np.sort(np.random.normal(loc=1.0, size=n_items))
-    elif s_gen_func == 'spacing':
-        po = np.arange(1., 2 * n_items + 1, 2.) - n_items
-        po = po / 2 / n_items
-        s_true = np.log(np.power(10, po))
-        print('ground truth s', s_true)
 
-    if beta_gen_func == 'manual':
-        assert len(shrink_b) == n_judges
-        beta_true = np.array(shrink_b)
-    if beta_gen_func == 'shrink':
-        beta_true = np.random.random(size=n_judges) / shrink_b
-    if beta_gen_func == 'ex':
-        beta_true = np.random.exponential(shrink_b, size=n_judges)
-    elif beta_gen_func == 'power':
-        beta_true = np.power(shrink_b, -1. * np.arange(0, n_judges))
-    elif beta_gen_func == 'xi':
-        assert shrink_b < len(beta_true)
-        beta_true = [0.00001, 0.0001, 0.0002, 0.0005,
-                 0.001, 0.005,
-                 0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09,
-                 0.1, 0.5, 1.0]
-        beta_true = np.ones(n_judges) * beta_true[shrink_b]
-    elif beta_gen_func == 'beta':
-        beta_true = np.random.beta(shrink_b[0], shrink_b[1], size=n_judges)
-    elif beta_gen_func == 'gamma':
-        beta_true = np.random.gamma(shrink_b[0], shrink_b[1], size=n_judges)
-    elif beta_gen_func == 'negative':
-        n_positive = min(int(np.ceil(n_judges * 0.7)), n_judges - 1)
-        n_negative = n_judges - n_positive
-        beta_true = np.array([shrink_b] * n_positive + [-shrink_b] * n_negative)
+    if beta_true is not None and s_true is not None:
+        pass
+    else:
+        if s_gen_func == 'random':
+            s_true = np.sort(np.random.normal(loc=1.0, size=n_items))
+        elif s_gen_func == 'spacing':
+            po = np.arange(1., 2 * n_items + 1, 2.) - n_items
+            po = po / 2 / n_items
+            s_true = np.log(np.power(10, po))
+
+        if beta_gen_func == 'manual':
+            assert len(shrink_b) == n_judges
+            beta_true = np.array(shrink_b)
+        if beta_gen_func == 'shrink':
+            beta_true = np.random.random(size=n_judges) / shrink_b
+        if beta_gen_func == 'ex':
+            beta_true = np.random.exponential(shrink_b, size=n_judges)
+        elif beta_gen_func == 'power':
+            beta_true = np.power(shrink_b, -1. * np.arange(0, n_judges))
+        elif beta_gen_func == 'xi':
+            assert shrink_b < len(beta_true)
+            beta_true = [0.00001, 0.0001, 0.0002, 0.0005,
+                     0.001, 0.005,
+                     0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09,
+                     0.1, 0.5, 1.0]
+            beta_true = np.ones(n_judges) * beta_true[shrink_b]
+        elif beta_gen_func == 'beta':
+            beta_true = np.random.beta(shrink_b[0], shrink_b[1], size=n_judges)
+        elif beta_gen_func == 'gamma':
+            beta_true = np.random.gamma(shrink_b[0], shrink_b[1], size=n_judges)
+        elif beta_gen_func == 'negative':
+            n_positive = min(int(np.ceil(n_judges * 0.7)), n_judges - 1)
+            n_negative = n_judges - n_positive
+            beta_true = np.array([shrink_b] * n_positive + [-shrink_b] * n_negative)
+
+    print('ground truth s', s_true)
     print('ground truth beta', beta_true)
+    s_true = np.array(s_true)
+    beta_true = np.array(beta_true)
 
     # s_true = np.array([-0.3, 0.7, 0.2, 0.5, 0.1])
     # beta_true = np.array([0.1, 2.0, 0.05, 4.0, 1.0])
 
-    beta_idx = np.argsort(np.abs(beta_true))
-    ii = beta_idx[n_judges // 2]
-    beta_true[ii], beta_true[0] = beta_true[0], beta_true[ii]
-    # TODO: move this part to estimation rather than generation
+    # beta_idx = np.argsort(np.abs(beta_true))
+    # ii = beta_idx[n_judges // 2]
+    # beta_true[ii], beta_true[0] = beta_true[0], beta_true[ii]
+    # # TODO: move this part to estimation rather than generation
 
     s_true -= s_true[0]
     # s_true /= s_true.sum()

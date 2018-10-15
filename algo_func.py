@@ -32,7 +32,7 @@ class Initializer:
         prob_mat = copy.deepcopy(prob_mat)
         # NOTE: adjusted here
         if prob_regularization:
-            prob_mat += 1.
+            prob_mat += 0.1
         n_size = prob_mat.shape[0]
         prob_mat = prob_mat.astype(np.double)
         for i in range(n_size):
@@ -79,8 +79,9 @@ class PopulationInitializer(Initializer):
 
         # ------------ use all judge info to calc
         mixed = p.sum(axis=0)
-        t = self.calculate_transition(mixed)
-        sp = np.log(self.calculate_stationary_distribution(t))
+        t = self.calculate_transition(mixed, self.config.prob_regularization)
+        w = self.calculate_stationary_distribution(t)
+        sp = np.log(np.abs(w))
         # normalize s for easy comparison
         sp -= np.min(sp)
         sp /= sp.sum()
@@ -151,7 +152,7 @@ class IndividualInitializer(Initializer):
             # u1 = np.matmul(np.matmul(np.linalg.gamma(np.matmul(A.T, A)), A.T), b)
             u = scipy.sparse.linalg.lsqr(a, b, show=self.verbose)[0]
 
-            q = np.hstack([np.log(u)])
+            q = np.hstack([np.log(np.abs(u))])
             qs.append(q)
 
         qs = np.vstack(qs)
@@ -306,19 +307,69 @@ class RankAggregation:
             # TODO: manual gradient
             raise NotImplementedError
 
-        if self.config.normalize_gradient:
+        if self.config.normalize_gradient and not self.config.linesearch:
             for pa_index, pa in enumerate(self.parameters):
                 grad_norm = torch.sqrt(torch.sum(pa.grad.data * pa.grad.data))
-                pa.grad.data /= grad_norm * 0.01
+                pa.grad.data /= grad_norm
 
-        self.optimizer.step()
-        self.sched.step(self.pr)
+        if self.config.linesearch:
+            a = 0.35
+            b = 0.8
+            t = 1.
+            s = self.parameters[1]
+            bb = self.parameters[0]
+
+            assert s.shape[0] == self.n_items
+            assert bb.shape[0] == self.n_judges
+
+            x = np.hstack([s.data, bb.data])
+            dx = np.hstack([s.grad.data, bb.grad.data])
+            if np.sqrt(np.sum(dx * dx)) < 10e-5:
+                return True
+
+            test_x = x - t * dx
+            test_s = test_x[:self.n_items]
+            test_bb = test_x[self.n_items:]
+
+            test_p = self.compute_likelihood_np(test_s, test_bb)
+            old_p = np.array(self.pr.data)
+            # old_p2 = self.compute_likelihood_np(self.s.detach().cpu().numpy(), self.beta.detach().cpu().numpy())
+            # print('starting search, initial p: ', old_p, 'test_p', test_p)
+
+            while test_p > old_p - a * t * dx.dot(dx):
+                t = b * t
+                test_x = x - t * dx
+                test_s = test_x[:self.n_items]
+                test_bb = test_x[self.n_items:]
+                # print('new step:', t, 'test_p: ', test_p)
+                # prev_p = test_p
+                test_p = self.compute_likelihood_np(test_s, test_bb)
+                # if (prev_p == test_p) / prev_p < 0.0001:
+                # if prev_p == test_p:
+                #     break
+
+            s.data *= 0.
+            s.data += torch.tensor(test_s, dtype=self.dtype, device=self.device)
+            bb.data *= 0.
+            bb.data += torch.tensor(test_bb, dtype=self.dtype, device=self.device)
+        else:
+            self.optimizer.step()
+
+        if not self.config.linesearch:
+            self.sched.step(self.pr)
 
         if not self.config.fix_s:
             self.post_process()
 
-        self.pr_list.append(self.pr.detach().cpu().numpy())
+        num_pr = self.pr.detach().cpu().numpy().tolist()
+        assert not isinstance(num_pr, list)
+        self.pr_list.append(num_pr)
         self.s_list.append(np.linalg.norm(self.s.data.cpu().numpy() - self.s_true))
+
+        # if self.config.linesearch and len(self.pr_list) > 10 and abs(self.pr_list[-10] - self.pr_list[-1]) / self.pr_list[-10] < 0.001:
+        #     return True
+        # else:
+        return False
 
     def post_process(self):
         raise NotImplementedError
@@ -350,6 +401,14 @@ class BTLNaive(RankAggregation):
 
         pr = - torch.sum(torch.sum(self.count_mat, dim=0) * torch.log(torch.exp(si_minus_sj) + 1))
         self.pr = -pr / self.n_pairs
+
+    def compute_likelihood_np(self, s, beta):
+        sr_j = self.replicator.cpu().numpy() * s  # each column is the same value
+        sr_i = sr_j.T
+        si_minus_sj = sr_i - sr_j
+
+        pr = - np.sum(np.sum(self.count_mat.cpu().numpy(), dim=0) * np.log(np.exp(si_minus_sj) + 1))
+        return -pr / self.n_pairs
 
     def post_process(self):
         self.s.data -= torch.min(self.s.data)
@@ -399,12 +458,27 @@ class GBTLGamma(GBTL):
         ex = si_minus_sj.view((1,) + si_minus_sj.shape)
         iv = self.gamma.view(self.gamma.shape + (1, 1))
         qu = ex * iv
-        mask = (qu > 11).double()
+        mask = (qu > 23).double()
         q_approx = mask * qu
         q_exact = qu - q_approx
         lg = torch.log(torch.exp(q_exact) + 1) + q_approx
         pr = - torch.sum(self.count_mat * lg)
         self.pr = -pr / self.n_pairs
+
+    def compute_likelihood_np(self, s, gamma):
+        sr_j = self.replicator.cpu().numpy() * s  # each column is the same value
+        sr_i = sr_j.T
+        si_minus_sj = sr_i - sr_j
+
+        ex = si_minus_sj.reshape((1,) + si_minus_sj.shape)
+        iv = gamma.reshape(self.gamma.shape + (1, 1))
+        qu = ex * iv
+        mask = (qu > 23)
+        q_approx = mask * qu
+        q_exact = qu - q_approx
+        lg = np.log(np.exp(q_exact) + 1) + q_approx
+        pr = - np.sum(self.count_mat.cpu().numpy() * lg)
+        return -pr / self.n_pairs
 
     def post_process(self):
         self.s.data -= torch.min(self.s.data)
@@ -442,12 +516,27 @@ class GBTLBeta(GBTL):
         ex = si_minus_sj.view((1,) + si_minus_sj.shape)
         ep = self.beta.view(self.beta.shape + (1, 1))
         qu = ex / ep
-        mask = (qu > 11).double()
+        mask = (qu > 23).double()
         q_approx = mask * qu
         q_exact = qu - q_approx
         lg = torch.log(torch.exp(q_exact) + 1) + q_approx
         pr = - torch.sum(self.count_mat * lg)
         self.pr = -pr / self.n_pairs
+
+    def compute_likelihood_np(self, s, beta):
+        sr_j = self.replicator.cpu().numpy() * s  # each column is the same value
+        sr_i = sr_j.T
+        si_minus_sj = sr_i - sr_j
+
+        ex = si_minus_sj.reshape((1,) + si_minus_sj.shape)
+        ep = beta.reshape(beta.shape + (1, 1))
+        qu = ex / ep
+        mask = (qu > 23)
+        q_approx = mask * qu
+        q_exact = qu - q_approx
+        lg = np.log(np.exp(q_exact) + 1) + q_approx
+        pr = - np.sum(self.count_mat.cpu().numpy() * lg)
+        return -pr / self.n_pairs
 
     # def compute_gradient(self):
     #     grad_b = torch.sum(torch.sum(self.count_mat * (-1. / ep / ep * ex / (torch.exp(-qu) + 1)), dim=-1), dim=-1) / n_pairs
@@ -484,12 +573,27 @@ class GBTLEpsilon(GBTL):
         ex = si_minus_sj.view((1,) + si_minus_sj.shape)
         ep = (self.eps * self.eps).view(self.eps.shape + (1, 1))
         qu = ex / ep
-        mask = (qu > 11).double()
+        mask = (qu > 23).double()
         q_approx = mask * qu
         q_exact = qu - q_approx
         lg = torch.log(torch.exp(q_exact) + 1) + q_approx
         pr = - torch.sum(self.count_mat * lg)
         self.pr = -pr / self.n_pairs
+
+    def compute_likelihood_np(self, s, eps):
+        sr_j = self.replicator.cpu().numpy() * s  # each column is the same value
+        sr_i = sr_j.T
+        si_minus_sj = sr_i - sr_j
+
+        ex = si_minus_sj.reshape((1,) + si_minus_sj.shape)
+        ep = (eps * eps).reshape(eps.shape + (1, 1))
+        qu = ex / ep
+        mask = (qu > 23)
+        q_approx = mask * qu
+        q_exact = qu - q_approx
+        lg = np.log(np.exp(q_exact) + 1) + q_approx
+        pr = -np.sum(self.count_mat.cpu().numpy() * lg)
+        return -pr / self.n_pairs
 
     def post_process(self):
         self.s.data -= torch.min(self.s.data)
@@ -516,11 +620,15 @@ def make_estimation(data_pack, config):
         raise NotImplementedError
 
     algorithm.initialize()
-    algorithm.setup_optimizer()
+    require_opt = algorithm.setup_optimizer()
+    algorithm.init_print()
 
-    for i in range(config.max_iter):
-        algorithm.compute_likelihood()
-        algorithm.optimization_step()
+    if require_opt:
+        for i in range(config.max_iter):
+            algorithm.compute_likelihood()
+            if algorithm.optimization_step():
+                print('line search stop condition met -------')
+                break
 
     beta_est = algorithm.consolidate_result()
     s_est = algorithm.s.data.cpu().numpy()
@@ -538,7 +646,14 @@ def make_estimation(data_pack, config):
     # print(res_pack)
     res_pack.data_pack = data_pack
 
-    res_pack.pr_list = algorithm.pr_list[10:]
-    res_pack.s_list = algorithm.s_list[10:]
+    res_pack.pr_list = algorithm.pr_list[0:]
+    res_pack.s_list = algorithm.s_list[0:]
 
+    if config.linesearch:
+        pr_name = 'line'
+    else:
+        pr_name = 'sgd'
+    if config.init_method == 'disturb':
+        pr_name = 'gt'
+    res_pack.pr_name = pr_name
     return res_pack

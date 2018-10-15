@@ -14,7 +14,8 @@ def err_func(pred):
 def acc_func(pred, src=None):
     if src is None:
         src = np.arange(len(pred))
-    return scipy.stats.spearmanr(pred, src)[0]
+    # return scipy.stats.spearmanr(pred, src)[0]
+    return scipy.stats.kendalltau(pred, src)[0]
 
 
 def get_eval(all_pack):
@@ -28,7 +29,7 @@ def get_eval(all_pack):
     return acc
 
 
-def gen_data(data_name, seed, save_path=None):
+def gen_data(data_name, seed, save_path=None, s_true=None, beta_true=None):
     dn = data_name.split('-')
 
     dn1_split = list(map(float, dn[1][1:].split(',')))
@@ -69,7 +70,9 @@ def gen_data(data_name, seed, save_path=None):
         'save_path': save_path,
         'known_pairs_ratio': known_pairs_ratio,
         'repeated_comps': repeated_comps,
-        'gen_by_pair': gen_by_pair
+        'gen_by_pair': gen_by_pair,
+        's_true': s_true,
+        'beta_true': beta_true,
     }
     data_pack = generate_data(**data_kwarg)
     return data_pack, data_kwarg
@@ -119,7 +122,7 @@ def run_algo(data_pack, data_kwarg, algo_name, seed):
     config.normalize_gradient = True
     config.GPU = True
     config.linesearch = False
-    config.prob_regularization = False
+    config.prob_regularization = True
     config.err_const = 10e-23
     res_pack = make_estimation(data_pack, config)
 
