@@ -66,7 +66,7 @@ def gen_data(data_name, seed, save_path=None, s_true=None, beta_true=None):
         'n_items': ni,
         'n_judges': nj,
         'n_pairs': np,
-        'visualization': 1,
+        'visualization': 0,
         'save_path': save_path,
         'known_pairs_ratio': known_pairs_ratio,
         'repeated_comps': repeated_comps,
@@ -93,7 +93,7 @@ def run_algo(data_pack, data_kwarg, algo_name, seed):
     elif 'disturb' in an[1]:
         init = 'ground_truth_disturb'
     else:
-        init = 'random'
+        init = an[1]
         
     ob = 'random_b' in an[1]
     opt = 'mle' in an[2]
