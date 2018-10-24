@@ -4,7 +4,7 @@ import numpy as np
 
 class ReadingLevelDataset():
     def __init__(self, path="wsdm_rankagg_2013_readability_crowdflower_data.csv"):
-        self.s_true, self.count_mat = self.load_data(path)
+        self.s_true, self.count_mat, self.data_cnt = self.load_data(path)
 
     def load_data(self, path):
         f = open(path)
@@ -23,7 +23,7 @@ class ReadingLevelDataset():
         doc_id = 0
         judge_id = 0
         all_scores = []
-        all_accs = []
+        data_cnt = {}
 
         for dd, cols in enumerate(lines):
             if len(cols) != 15:
@@ -58,9 +58,17 @@ class ReadingLevelDataset():
                         if col:
                             if col[8] == 'A':
                                 count_mat[judge_set[judge_k]][item_set[item_j]][item_set[item_i]] += 1
+                                tp = (item_set[item_j], item_set[item_i], judge_set[judge_k])
+                                if tp not in data_cnt:
+                                    data_cnt[tp] = 0
+                                data_cnt[tp] += 1
                                 useful += 1
                             elif col[8] == 'B':
                                 count_mat[judge_set[judge_k]][item_set[item_i]][item_set[item_j]] += 1
+                                tp = (item_set[item_i], item_set[item_j], judge_set[judge_k])
+                                if tp not in data_cnt:
+                                    data_cnt[tp] = 0
+                                data_cnt[tp] += 1
                                 useful += 1
                             elif col != "I don't know or can't decide.":
                                 print(col, dd)
@@ -86,9 +94,11 @@ class ReadingLevelDataset():
         print('n_doc', len(item_set))
         print('n_judge', len(judge_set))
 
-        return np.array(all_scores), count_mat
+        return np.array(all_scores), count_mat, data_cnt
 
 
 if __name__ == '__main__':
-    print(ReadingLevelDataset().count_mat.sum(axis=0))
-    print(ReadingLevelDataset().s_true)
+    ds = ReadingLevelDataset()
+    print(ds.count_mat.sum(axis=0))
+    print(ds.s_true)
+    print(ds.data_cnt)

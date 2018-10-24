@@ -8,6 +8,7 @@ import time
 import scipy.sparse.linalg
 from addict import Dict
 
+
 def BinSearch(fun,y): # find x s.t fun(x)=y, function must be strictly increasing with range (0,infinity), fun(0) = 0
     if y == 0:
         return 0
@@ -33,16 +34,23 @@ def BinSearch(fun,y): # find x s.t fun(x)=y, function must be strictly increasin
             x_low = x_mid
     return (x_low+x_hi)/2
 
+
 def BetaErrorRate(x):
     if x==0:
         return 0
     return -(1/6)*x*(x*np.pi*np.pi-12*np.log(2)+12*x*scipy.special.spence(1+np.exp(-1/x)))
 
+
 def BetaSearch(y):
-    if y<=1/2:
-        return BinSearch(BetaErrorRate,y)
+    if y < 0.0013846494270530422:
+        return 0.001
+    if y > 0.49916666877531185:
+        return 100.
+    if y <= 0.5:
+        return BinSearch(BetaErrorRate, y)
     else:
-        return -BinSearch(BetaErrorRate,1-y)
+        return -BinSearch(BetaErrorRate, 1 - y)
+
 
 def computeLogLikelihood(s,gamma,comps):
     LL = 0
@@ -52,6 +60,7 @@ def computeLogLikelihood(s,gamma,comps):
         prefered = comp[2]
         LL += - np.log(1+np.exp(-(prefered*(si-sj)+(1-prefered)*(sj-si))*gamma))
     return LL
+
 
 def computeGrad(s,gamma,comps):
     LL = 0
@@ -63,6 +72,7 @@ def computeGrad(s,gamma,comps):
         LL += deltaS/(1+np.exp(deltaS*gamma))
     return LL
 
+
 def compute2ndD(s,gamma,comps):
     LL = 0
     for comp in comps:
@@ -72,6 +82,7 @@ def compute2ndD(s,gamma,comps):
         deltaS = prefered*(si-sj)+(1-prefered)*(sj-si)
         LL -= 1/4*deltaS**2/np.cosh(deltaS*gamma/2)
     return LL
+
 
 def BetaMLEstimate(s,data,init=1):
     comps = []
@@ -348,6 +359,8 @@ class RankAggregation:
     def __init__(self, data_pack, config):
         self.config = config
         self.data_pack = data_pack
+        if self.data_pack.data_cnt:
+            self.data_cnt = self.data_pack.data_cnt
 
         self.verbose = False
 
@@ -528,6 +541,13 @@ class BTLNaive(RankAggregation):
         pr = - torch.sum(torch.sum(self.count_mat, dim=0) * torch.log(torch.exp(si_minus_sj) + 1))
         self.pr = -pr / self.n_pairs
 
+    def compute_likelihood_sparse(self):
+        pr = torch.tensor(0, dtype=self.dtype).to(self.device)
+        for item, cnt in self.data_cnt.items():
+            i, j, k = item
+            pr += - cnt * torch.log(torch.exp((self.s[j] - self.s[i])) + 1)
+        self.pr = -pr / self.n_pairs
+
     def compute_likelihood_np(self, s, beta):
         sr_j = self.replicator.cpu().numpy() * s  # each column is the same value
         sr_i = sr_j.T
@@ -596,6 +616,13 @@ class GBTLGamma(GBTL):
         pr = - torch.sum(self.count_mat * lg)
         self.pr = -pr / self.n_pairs
 
+    def compute_likelihood_sparse(self):
+        pr = torch.tensor(0, dtype=self.dtype).to(self.device)
+        for item, cnt in self.data_cnt.items():
+            i, j, k = item
+            pr += - cnt * torch.log(torch.exp((self.s[j] - self.s[i]) * self.gamma[k]) + 1)
+        self.pr = -pr / self.n_pairs
+
     def compute_likelihood_np(self, s, gamma):
         sr_j = self.replicator.cpu().numpy() * s  # each column is the same value
         sr_i = sr_j.T
@@ -654,6 +681,13 @@ class GBTLBeta(GBTL):
         pr = - torch.sum(self.count_mat * lg)
         self.pr = -pr / self.n_pairs
 
+    def compute_likelihood_sparse(self):
+        pr = torch.tensor(0, dtype=self.dtype).to(self.device)
+        for item, cnt in self.data_cnt.items():
+            i, j, k = item
+            pr += - cnt * torch.log(torch.exp((self.s[j] - self.s[i]) / self.beta[k]) + 1)
+        self.pr = -pr / self.n_pairs
+
     def compute_likelihood_np(self, s, beta):
         sr_j = self.replicator.cpu().numpy() * s  # each column is the same value
         sr_i = sr_j.T
@@ -709,6 +743,13 @@ class GBTLEpsilon(GBTL):
         q_exact = qu - q_approx
         lg = torch.log(torch.exp(q_exact) + 1) + q_approx
         pr = - torch.sum(self.count_mat * lg)
+        self.pr = -pr / self.n_pairs
+
+    def compute_likelihood_sparse(self):
+        pr = torch.tensor(0, dtype=self.dtype).to(self.device)
+        for item, cnt in self.data_cnt.items():
+            i, j, k = item
+            pr += - cnt * torch.log(torch.exp((self.s[j] - self.s[i]) / self.eps[k] / self.eps[k]) + 1)
         self.pr = -pr / self.n_pairs
 
     def compute_likelihood_np(self, s, eps):

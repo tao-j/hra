@@ -101,6 +101,7 @@ def generate_data(data_seed=None,
         ds = conv_data.ReadingLevelDataset()
         count_mat = ds.count_mat
         s_true = ds.s_true
+        data_cnt = ds.data_cnt
 
         n_pairs = np.sum(np.sum(np.sum(count_mat)))
         n_items = count_mat.shape[1]
@@ -184,6 +185,8 @@ def generate_data(data_seed=None,
     data_pack.s_true = s_true
     data_pack.beta_true = beta_true
     data_pack.count_mat = count_mat
+    if load_data:
+        data_pack.data_cnt = data_cnt
 
     if visualization:
         show_images(individual_imgs[:25], cols=5, save_path=save_path)
