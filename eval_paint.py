@@ -11,21 +11,36 @@ def err_func(pred):
     return np.abs(np.arange(len(pred)) - pred).mean()
 
 
-def acc_func(pred, src=None):
-    if src is None:
-        src = np.arange(len(pred))
-    # return scipy.stats.spearmanr(pred, src)[0]
-    return scipy.stats.kendalltau(pred, src)[0]
+def acc_func(pred, true):
+    print(scipy.stats.mannwhitneyu(pred, true))
+    print(scipy.stats.spearmanr(pred, true))
+    print(scipy.stats.kendalltau(pred, true))
+
+    n = len(pred)
+    nomi = 0.
+    deno = 0.
+    snomi = 0.
+    assert len(pred) == len(true)
+    for i in range(n):
+        for j in range(n):
+            if true[j] > true[i]:
+                deno += 1
+                if pred[j] > pred[i]:
+                    nomi += 1
+                else:
+                    snomi += 1
+    print('tau-b-n^2: ', (nomi-snomi) / deno)
+    return nomi / deno
 
 
 def get_eval(all_pack):
     s_est = all_pack.s_est
-    rank_pred = np.argsort(s_est)
-    rank_orig = np.argsort(all_pack.data_pack.s_true)
+    rank_pred = s_est
+    rank_true = all_pack.data_pack.s_true
     if np.any(np.isnan(np.array(s_est))):
         acc = np.nan
     else:
-        acc = acc_func(rank_pred, rank_orig)
+        acc = acc_func(rank_pred, rank_true)
     return acc
 
 
@@ -129,3 +144,21 @@ def run_algo(data_pack, data_kwarg, algo_name, seed):
     cb = {**data_kwarg, **algo_kwarg, **res_pack}
     return cb
 
+
+def print_all_eval(pred, true):
+    print(pred)
+    print(true)
+    print('man whitney:', scipy.stats.mannwhitneyu(pred, true))
+    print('spearman:', scipy.stats.spearmanr(pred, true))
+    print('kendall:', scipy.stats.kendalltau(pred, true))
+
+
+if __name__ == '__main__':
+    pred = list(range(2, 5)) + list(range(2, 9))
+    true = np.arange(len(pred))
+    print_all_eval(pred, true)
+
+    print('arg sorted')
+    pred = np.argsort(pred)
+    true = np.argsort(true)
+    print_all_eval(pred, true)
