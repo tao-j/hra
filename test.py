@@ -1,5 +1,3 @@
-
-
 from addict import Dict
 
 from algo_func import *
@@ -18,20 +16,22 @@ if __name__ == '__main__':
 
     base_str = ''
 
-    s_true = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+    s_true = list(reversed([0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]))
     beta_true = [0.5, 0.8, 1.0, 1.5, 2.0, 3.0]
     n_items = len(s_true)
     n_judges = len(beta_true)
     data_name_base = '-'.join(['ma', ','.join(list(map(str, beta_true))), 'j' + str(n_judges), 'i' + str(n_items)])
 
-    s_true = np.arange(0, 1, .1)
-    good_beta = np.array([0.01, 0.02, 0.05, 0.1, 0.15, 0.2, 0.3, 0.4, 0.5, 0.75])
-    bad_beta = np.array([0.2, 0.3, 0.4, 0.5, 0.75, 1.0, 1.5, 2.0, 4.0, 8.0])
+    s_true = np.arange(1., 0., -.1)
+    s_true = np.arange(0., 1., .1)
+    good_beta = np.array([0.01, 0.02, 0.05, 0.1, 0.15, 0.2, 0.3, 0.4, 0.5, 0.75][:1])
+    bad_beta = np.array([0.2, 0.3, 0.4, 0.5, 0.75, 1.0, 1.5, 2.0, 4.0, 8.0][:1])
 
     data_name_suffix = [
         # '0.8k1',
-        '0.4k1',
+        # '0.4k1',
         # '0.2k1',
+        '0.1k1',
         # '1.0k1',
         # '0.16k5',
         # '0.08k10',
@@ -49,16 +49,16 @@ if __name__ == '__main__':
         # 'btl-spectral-mle',
         # 'btl-random-mle',
         # 'gbtl-spectral_all-do',
-        'gbtlneg-spectral_all-do',
-        'gbtlneg-moment-do',-
-        'gbtlneg-ml-do',
+        # 'gbtlneg-spectral_all-do',
+        # 'gbtlneg-moment-do',
+        # 'gbtlneg-ml-do',
     ]
     algo = [
         # 'gbtl-spectral_all-mle',
-        'gbtlneg-moment-mle',
+        # 'gbtlneg-moment-mle',
         'gbtlneg-ml-mle',
         # 'gbtl-random_all-mle',
-        'gbtlneg-spectral_all-mle',  #
+        # 'gbtlneg-spectral_all-mle',  #
         # 'gbtlneg-random_all-mle',  #
         # 'gbtlinv-spectral_all-mle',  #
         # 'gbtlinv-random_all-mle',  #
@@ -82,7 +82,7 @@ if __name__ == '__main__':
         acc.append([])
         bta.append([])
 
-    data_seeds = [1313, 3838, 6262, 1338, 1362, 3862, 6238, 6213, 3813, 13, 38, 62]
+    data_seeds = [1313, 3838, 6262, 1338, 1362, 3862, 6238, 6213, 3813, 13, 38, 62][:1]
     start_t = time.time()
 
     data_names = []
