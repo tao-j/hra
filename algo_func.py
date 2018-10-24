@@ -10,6 +10,10 @@ from addict import Dict
 
 
 def BinSearch(fun,y): # find x s.t fun(x)=y, function must be strictly increasing with range (0,infinity), fun(0) = 0
+    if y < 0.0013846494270530422:
+        return 0.001
+    if y > 0.49916666877531185:
+        return 100.
     if y == 0:
         return 0
     x_hi = 1
@@ -42,10 +46,6 @@ def BetaErrorRate(x):
 
 
 def BetaSearch(y):
-    if y < 0.0013846494270530422:
-        return 0.001
-    if y > 0.49916666877531185:
-        return 100.
     if y <= 0.5:
         return BinSearch(BetaErrorRate, y)
     else:
