@@ -1,0 +1,251 @@
+\PassOptionsToPackage{unicode=true}{hyperref} % options for packages loaded elsewhere
+\PassOptionsToPackage{hyphens}{url}
+%
+\documentclass[]{article}
+\usepackage{lmodern}
+\usepackage{amssymb,amsmath}
+\usepackage{ifxetex,ifluatex}
+\usepackage{fixltx2e} % provides \textsubscript
+\ifnum 0\ifxetex 1\fi\ifluatex 1\fi=0 % if pdftex
+  \usepackage[T1]{fontenc}
+  \usepackage[utf8]{inputenc}
+  \usepackage{textcomp} % provides euro and other symbols
+\else % if luatex or xelatex
+  \usepackage{unicode-math}
+  \defaultfontfeatures{Ligatures=TeX,Scale=MatchLowercase}
+\fi
+% use upquote if available, for straight quotes in verbatim environments
+\IfFileExists{upquote.sty}{\usepackage{upquote}}{}
+% use microtype if available
+\IfFileExists{microtype.sty}{%
+\usepackage[]{microtype}
+\UseMicrotypeSet[protrusion]{basicmath} % disable protrusion for tt fonts
+}{}
+\IfFileExists{parskip.sty}{%
+\usepackage{parskip}
+}{% else
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{6pt plus 2pt minus 1pt}
+}
+\usepackage{hyperref}
+\hypersetup{
+            pdftitle={Rank Aggregation},
+            pdfauthor={Tao Jin},
+            pdfborder={0 0 0},
+            breaklinks=true}
+\urlstyle{same}  % don't use monospace font for urls
+\setlength{\emergencystretch}{3em}  % prevent overfull lines
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+\setcounter{secnumdepth}{0}
+% Redefines (sub)paragraphs to behave more like sections
+\ifx\paragraph\undefined\else
+\let\oldparagraph\paragraph
+\renewcommand{\paragraph}[1]{\oldparagraph{#1}\mbox{}}
+\fi
+\ifx\subparagraph\undefined\else
+\let\oldsubparagraph\subparagraph
+\renewcommand{\subparagraph}[1]{\oldsubparagraph{#1}\mbox{}}
+\fi
+
+% set default figure placement to htbp
+\makeatletter
+\def\fps@figure{htbp}
+\makeatother
+
+
+\title{Rank Aggregation}
+\author{Tao Jin}
+\date{}
+
+\begin{document}
+\maketitle
+
+\hypertarget{introduction-and-motivation}{%
+\section{Introduction and
+Motivation}\label{introduction-and-motivation}}
+
+In rank aggregation tasks, specifically in the case of given pairwise
+comparison to recover the whole series of rank, order obtained from one
+pair may be contradict to the other. It is natural to incorporate this
+kind of noisyness into aggregation model so as to reach a consensus the
+populartion would agree to.
+
+While considering the trustworthyness of all the comparison pairs, it is
+also notable that the annotator/judge will have various error rate while
+making the judgements. It may be beneficial to also take the quality of
+the annoator into account. For instances, in some area, only a small
+portion of the experts can make sound judgment most of the time. And in
+some problem regarding to common sense, majority of the annotators may
+give a reasonable mount of reliable statment. In many rank aggregations,
+although model consider the effect of noisy inputs by inprecise
+judgement claimed, there is no account for the difference of amount of
+noisyness provided by each judge mentioned above.
+
+In order to model the noisyness with such granurity, we introduce a
+natural extention to Bradley-Terry model (BTL) which provides
+flexibility to handle this situation. We call this algorithm generalized
+BTL model (GBTL).
+
+In this paper, we first introduce the standard BTL model and then show
+the effectiveness of our GBTL model on sythetic data as well as Reading
+Level Dataset.
+
+\hypertarget{related-work}{%
+\section{Related Work}\label{related-work}}
+
+Spetral MLE
+
+Crowd BT
+
+\hypertarget{gbtl-algorithm}{%
+\section{GBTL: Algorithm}\label{gbtl-algorithm}}
+
+\hypertarget{problem-setup}{%
+\subsection{Problem Setup}\label{problem-setup}}
+
+Given a set of items and each of them have a conceptual score which can
+be used to rank them in a certain order, which may or may not exist in
+reality. The score (sometimes called the utility of item) is denoted as
+\(\mathbf{s}\). In some literature it is referred as \(\mathbf{w}\) or
+\(\pi\). In this document, we refer \(w\) as \(w=e^s\) and assume
+\(\sum{\pi_i} = 1\), which is a normalized version of \(w\).
+
+Suppose there are a group of \(m\) judges who are presented with pair of
+objects to make judgment. And there are \(n\) items to be compared. Let
+\(c_{ji,k} (i, j \in [n], k \in[m])\) be the numbers of times \(i\) is
+preferred over item \(j\) reported by judge \(k\). Note that
+\(i \neq j\).
+
+In following methods, each kind of likelihood function corredponds to a
+model with various intentions.
+
+\hypertarget{simple-bradley-terry-model}{%
+\subsection{Simple Bradley Terry
+Model}\label{simple-bradley-terry-model}}
+
+We assume each user have a random noise
+\(\epsilon \sim Gumble(\mu, \beta)\) added to the conceptual score
+\(s_i\) while looking at item \(i\). So the probability of \(s_i > s_j\)
+is actually \(\Pr(s_i + \epsilon_i > s_j + \epsilon_j)\). Here, the BTL
+model assumes \(\beta = 1\).
+
+We can use integral or moment to prove the probablity for event item
+\(i\) ranked before item \(j\) to happen is as follows:
+
+\[Pr(I_i > I_j) = \frac{e^{s_i}}{e^{s_i} + e^{s_j}} = \left( {e^{s_j - s_i} + 1} \right)^{-1} \]
+
+After collecting result from judges, we can have a counting matrix
+\(C\), which stores number of times the respective statement appeared.
+Since the number of comparisons can vary case by case, the actual
+likelihood is normalized by of total number of comparisons. Then we can
+write the log likelihood of the dataset as
+
+\[L_{BTL}(\mathbf{s}) = -(\sum{c_{ij}})^{-1} \sum{\left( c_{ij} \cdot \ln \left( {e^{s_j - s_i} + 1} \right) \right) }  \]
+
+\hypertarget{crowd-bt-model}{%
+\subsection{Crowd BT Model}\label{crowd-bt-model}}
+
+In order to account for user quiality, author simplly added a quality
+parameter \(\eta\) for each judge.
+
+\[Pr(I_i > I_j) = \eta_k \cdot \frac{e^{s_i}}{e^{s_i} + e^{s_j}} + ( 1- \eta_k ) \cdot \frac{e^{s_j}}{e^{s_i} + e^{s_j}} 
+= \eta_k \left( {e^{s_j - s_i} + 1} \right)^{-1} + (1 -\eta_k) \left( {e^{s_i - s_j} + 1} \right)^{-1} \]
+
+\hypertarget{generalized-bt-model}{%
+\subsection{Generalized BT Model}\label{generalized-bt-model}}
+
+Apart from directly plug in a quality factor for each user. To account
+for trustworyhness of a user, we can also do this by adjusting the
+\(\beta\) parameter noise generation Gumble distribution.
+
+\[-(\sum{c_{ij, k}})^{-1} \sum{c_{ij,k} \cdot \ln({e^{\frac{s_j - s_i}{\beta_k}} + 1}})\]
+
+By definition, the Gumble distribution must have \(\beta > 0\) . In
+order to cast the restriction that \(\beta > 0\), in actual
+implementation \(\beta = \epsilon^2\) is used, the formula becomes
+\(-(\sum{c_{ij, k}})^{-1} \sum{c_{ij,k} \cdot \ln({e^{\frac{s_j - s_i}{\epsilon_k^2}} + 1}})\).
+
+\hypertarget{relaxed-generalized-bt-model}{%
+\subsection{Relaxed Generalized BT
+Model}\label{relaxed-generalized-bt-model}}
+
+Actually the restrcition \(\beta > 0\) can be removed in \texttt{gbtl}.
+
+Suppose a judge have good knowlege of the items, however he tends to
+provide ratings at the opposite direction to his best knowledge. In such
+adversarial setting, the fomula is quite similar to previous case.
+Assume \(\beta'_k = - \beta_k < 0\)
+
+\[-(\sum{c_{ij, k}})^{-1} \sum{c_{ij,k} \cdot \ln({e^{\frac{s_j - s_i}{-\beta_k}} + 1}})\]
+we can see that it is still calculating the probability of items i
+better than item j.
+
+Ideally, this algorithm can handle those adversarial judges which know
+that \(s_i > s_j\) but cast a vote that \(s_i < s_j\).
+
+\[-(\sum{c_{ij, k}})^{-1} \sum{c_{ij,k} \cdot \ln({e^{\frac{s_j - s_i}{\beta'_k}} + 1}})\]
+
+When \(\beta\) is near zero, it will correspond to a perfect judge. When
+noisy comparison is seen, in order to compensate the likelihood, the
+\(\beta\) tends to be larger and larger. It would be very hard for the
+optimization algorithm which is a likelihood maximizer to produce
+gradient that to make the value of \(\beta\) to become negative. For
+this knid of judge, when \(\beta\) is positive and very small, it will
+have smaller likelihood than \(\beta\) is positive and have larger
+value. However, when \(\beta\) is negative and very small, it will also
+have larger likelihood. To overcome this next algorithm is used.
+
+\hypertarget{gbtl-inverse}{%
+\subsubsection{gbtl-inverse}\label{gbtl-inverse}}
+
+\texttt{gbtl-inverse}: Let \(\gamma_k = 1/\beta_k\) to replace the
+denominator part in \texttt{gbtl-negative} as a multiplier for easy
+optimization.
+
+This is used to compensate the effect of previous method, so the good
+judge will have a very large \(\gamma_k\), while bad judge can flip sign
+to become adversarial while the gradient will always in the right
+direction to make the likelihood larger.
+
+\[-(\sum{c_{ij, k}})^{-1} \sum{c_{ij,k} \cdot \ln({e^{(s_j - s_i) \cdot \gamma_k} + 1}})\]
+
+\hypertarget{initialization}{%
+\subsection{Initialization}\label{initialization}}
+
+Instead of put initial value of each parameter randomly, the spectral
+method described in ``Rank Centrality'' is used to provide a near
+estimate of the true utility, so that the gradient descent algorithm may
+produce better result.
+
+\hypertarget{optimization}{%
+\subsection{Optimization}\label{optimization}}
+
+\begin{itemize}
+\tightlist
+\item
+  Calculate the gradient using likelihood function mentioned above.
+  Update \(s\) and \(\beta\) simultaneously. It is also possible to do
+  alternating update.
+\end{itemize}
+
+Because in the likelihood function, only difference between \(s\)
+matters, so there will be infinate number of solutions if \(s\) is not
+restricted. Without loss of generality we put \(\min(s) = 0\). In
+\texttt{gbtl-*} model, consider we have fixed \texttt{s}, but the +
+\(s\) is shifted to have minimum value to be 0.
+\(\mathbf{s} = \mathbf{s} - \min{s_i}\). + \(\beta\) is scaled to
+prevent the change of likelihood for next step
+\(\beta = \beta / \sum{s_i}\). + \(s\) is then nomalized/scaled to be
+summed to 1. \(\mathbf{s} = \mathbf{s} / \sum{s_i}\).
+
+\hypertarget{experiments}{%
+\section{Experiments}\label{experiments}}
+
+\hypertarget{synthetic-data}{%
+\subsection{Synthetic data}\label{synthetic-data}}
+
+\hypertarget{reading-level-data}{%
+\subsection{Reading Level data}\label{reading-level-data}}
+
+\end{document}
