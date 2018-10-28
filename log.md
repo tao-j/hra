@@ -1,5 +1,6 @@
 ---
 title: Rank Aggregation from Pairwise Comparision
+author: Tao Jin
 ---
 
 # Algorithm
