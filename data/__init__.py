@@ -1,6 +1,6 @@
 import numpy as np
 import time
-import conv_data
+from data.readinglevel import *
 from addict import Dict
 
 import matplotlib
