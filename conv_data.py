@@ -4,7 +4,7 @@ import numpy as np
 
 class ReadingLevelDataset():
     def __init__(self, path="wsdm_rankagg_2013_readability_crowdflower_data.csv"):
-        self.s_true, self.count_mat, self.data_cnt = self.load_data(path)
+        self.s_true, self.eta_true, self.count_mat, self.data_cnt = self.load_data(path)
 
     def load_data(self, path):
         f = open(path)
@@ -23,6 +23,7 @@ class ReadingLevelDataset():
         doc_id = 0
         judge_id = 0
         all_scores = []
+        all_judges = []
         data_cnt = {}
 
         for dd, cols in enumerate(lines):
@@ -49,31 +50,46 @@ class ReadingLevelDataset():
             else:
                 assert all_scores[item_set[item_i]] == int(cols[10])
             if judge_k not in judge_set:
-                judge_set[judge_k] = judge_id
+                if np.random.random() < 0.33333:
+                    sign = 1
+                else:
+                    sign = 1
+                judge_set[judge_k] = sign * judge_id
                 judge_id += 1
+                all_judges.append(cols[7])
 
             for idx, col in enumerate(cols):
                 try:
                     if idx == 9:
                         if col:
+                            jk = judge_set[judge_k]
+                            go = 0
                             if col[8] == 'A':
-                                count_mat[judge_set[judge_k]][item_set[item_j]][item_set[item_i]] += 1
-                                tp = (item_set[item_j], item_set[item_i], judge_set[judge_k])
-                                if tp not in data_cnt:
-                                    data_cnt[tp] = 0
-                                data_cnt[tp] += 1
-                                useful += 1
+                                go = 1
                             elif col[8] == 'B':
-                                count_mat[judge_set[judge_k]][item_set[item_i]][item_set[item_j]] += 1
-                                tp = (item_set[item_i], item_set[item_j], judge_set[judge_k])
-                                if tp not in data_cnt:
-                                    data_cnt[tp] = 0
-                                data_cnt[tp] += 1
-                                useful += 1
+                                go = -1
                             elif col != "I don't know or can't decide.":
                                 print(col, dd)
                             else:
                                 idk += 1
+
+                            if jk < 0:
+                                go = -go
+                                jk = -jk
+                            if go == 1:
+                                count_mat[jk][item_set[item_j]][item_set[item_i]] += 1
+                                tp = (item_set[item_j], item_set[item_i], jk)
+                                if tp not in data_cnt:
+                                    data_cnt[tp] = 0
+                                data_cnt[tp] += 1
+                                useful += 1
+                            if go == -1:
+                                count_mat[jk][item_set[item_i]][item_set[item_j]] += 1
+                                tp = (item_set[item_i], item_set[item_j], jk)
+                                if tp not in data_cnt:
+                                    data_cnt[tp] = 0
+                                data_cnt[tp] += 1
+                                useful += 1
                         else:
                             idk += 1
                             empty += 1
@@ -94,11 +110,38 @@ class ReadingLevelDataset():
         print('n_doc', len(item_set))
         print('n_judge', len(judge_set))
 
-        return np.array(all_scores), count_mat, data_cnt
+        return np.array(all_scores), all_judges, count_mat, data_cnt
 
 
 if __name__ == '__main__':
     ds = ReadingLevelDataset()
     print(ds.count_mat.sum(axis=0))
-    print(ds.s_true)
-    print(ds.data_cnt)
+    # print(ds.s_true)
+    s_true = ds.s_true.tolist()
+    open('doc_info.txt', 'w').write('\n'.join(list(
+        map(lambda value, idx: '{} {}'.format(idx+1, value), s_true, range(len(s_true))))))
+
+    eta_true = ds.eta_true
+    open('annotator_info.txt', 'w').write('\n'.join(list(
+        map(lambda value, idx: '{} {} {}'.format(idx+1, idx+1, value), eta_true, range(len(eta_true))))))
+
+    # print(ds.data_cnt)
+    mul_list = []
+    for k, v in ds.data_cnt.items():
+        if v > 1:
+            print(k, v)
+            mul_list.append(k)
+    open('all_pair.txt', 'w').write(
+        '\n'.join(
+            list(
+                map(
+                    lambda lose, win, anno_id: '{} {} {}'.format(
+                        anno_id+1, win+1, lose+1
+                    ), *list(
+                        zip(*ds.data_cnt.keys(), *mul_list)
+                    )
+                )
+            )
+        )
+    )
+

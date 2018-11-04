@@ -8,14 +8,24 @@ import time
 import scipy.sparse.linalg
 from addict import Dict
 
+BTL = 'btl'
+GBTLEPSILON = 'gbtl'
+GBTLBETA = 'gbtlneg'
+GBTLGAMMA = 'gbtlinv'
 
-def BinSearch(fun,y): # find x s.t fun(x)=y, function must be strictly increasing with range (0,infinity), fun(0) = 0
+INIT_RANDOM = 'random'
+INIT_GROUND_TRUTH = 'ground_truth_disturb'
+INIT_SPECTRAL = 'spectral'
+INIT_MOMENT = 'moment'
+INIT_ML = 'ml'
+
+def BinSearch(fun,y):  # find x s.t fun(x)=y, function must be strictly increasing with range (0,infinity), fun(0) = 0
     if y < 0.0013846494270530422:
         return 0.001
     if y > 0.49916666877531185:
         return 100.
-    if y == 0:
-        return 0
+    # if y == 0:
+    #     return 0
     x_hi = 1
     x_low = 0
     while 1:
@@ -181,6 +191,9 @@ class PopulationInitializer(Initializer):
         sp -= np.min(sp)
         # TODO: removed summation
         sp /= sp.sum()
+
+        # sp = np.array(list(map(float, open('s_init.txt').read().split('\n'))))
+
         return sp
 
 
@@ -334,17 +347,17 @@ class GroundTruthInitializer(Initializer):
     def get_initialization_point(self):
         return self.data_pack.s_true, self.data_pack.beta_true
 
-    # if init_method == 'random':
+    # if init_method == INIT_RANDOM:
     #     pass
     #
-    # if init_method == 'spectral':
+    # if init_method == INIT_SPECTRAL:
     #     s_init_tout, s_init_individual, beta_init = calc_s_beta(data_mat, verbose=verbose)
     #     eps_init = np.sqrt(np.abs(beta_init))
     #     if override_beta:
     #         beta_init = np.random.random(n_judges) * 0.05
     #         eps_init = np.random.random(n_judges) * 0.05
     #
-    # if init_method == 'ground_truth_disturb':
+    # if init_method == INIT_GROUND_TRUTH:
     #     s_init = s_true + np.random.normal(0, ground_truth_disturb, size=n_items)
     #     beta_init = beta_true + np.random.normal(0, ground_truth_disturb, size=n_judges)
     #     eps_init = eps_true + np.random.normal(0, ground_truth_disturb, size=n_judges)
@@ -405,7 +418,7 @@ class RankAggregation:
             raise NotImplementedError
 
     def setup_optimizer(self):
-        if not self.config.fix_s or self.config.algo == 'simple':
+        if not self.config.fix_s or self.config.algo == BTL:
             self.parameters.append(self.s)
             self.named_parameters['s'] = self.s
         self.optimizer = self.opt_func(self.parameters, lr=self.config.lr)
@@ -517,15 +530,15 @@ class BTLNaive(RankAggregation):
 
     def initialize(self):
         init_method = self.config.init_method
-        if init_method == 'random':
+        if init_method == INIT_RANDOM:
             initializer = RandomInitializer(self.data_pack, self.config)
-        elif init_method == 'spectral':
+        elif init_method == INIT_SPECTRAL:
             initializer = PopulationInitializer(self.data_pack, self.config)
-        elif init_method == 'ground_truth_disturb':
+        elif init_method == INIT_GROUND_TRUTH:
             initializer = GroundTruthInitializer(self.data_pack, self.config)
-        elif init_method == 'moment':
+        elif init_method == INIT_MOMENT:
             initializer = MomentInitializer(self.data_pack, self.config)
-        elif init_method == 'ml':
+        elif init_method == INIT_ML:
             initializer = MLInitializer(self.data_pack, self.config)
         else:
             raise NotImplementedError
@@ -572,15 +585,15 @@ class GBTL(RankAggregation):
 
     def get_initializer(self):
         init_method = self.config.init_method
-        if init_method == 'random':
+        if init_method == INIT_RANDOM:
             initializer = RandomInitializer(self.data_pack, self.config)
-        elif init_method == 'spectral':
+        elif init_method == INIT_SPECTRAL:
             initializer = IndividualInitializer(self.data_pack, self.config)
-        elif init_method == 'ground_truth_disturb':
+        elif init_method == INIT_GROUND_TRUTH:
             initializer = GroundTruthInitializer(self.data_pack, self.config)
-        elif init_method == 'moment':
+        elif init_method == INIT_MOMENT:
             initializer = MomentInitializer(self.data_pack, self.config)
-        elif init_method == 'ml':
+        elif init_method == INIT_ML:
             initializer = MLInitializer(self.data_pack, self.config)
         else:
             raise NotImplementedError
@@ -780,13 +793,13 @@ class GBTLEpsilon(GBTL):
 
 
 def make_estimation(data_pack, config):
-    if config.algo == 'simple':
+    if config.algo == BTL:
         algorithm = BTLNaive(data_pack, config)
-    elif config.algo == 'individual':
+    elif config.algo == GBTLEPSILON:
         algorithm = GBTLEpsilon(data_pack, config)
-    elif config.algo == 'negative':
+    elif config.algo == GBTLBETA:
         algorithm = GBTLBeta(data_pack, config)
-    elif config.algo == 'inverse':
+    elif config.algo == GBTLGAMMA:
         algorithm = GBTLGamma(data_pack, config)
     else:
         raise NotImplementedError
