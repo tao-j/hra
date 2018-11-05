@@ -1,13 +1,8 @@
-from addict import Dict
-
-from algo_func import *
-from data_helper import *
-from eval_paint import *
+from ifce.eval_paint import *
 
 import json
 import pprint
 
-import matplotlib.pyplot as plt
 import pandas as pd
 import os, sys
 import time
@@ -30,8 +25,8 @@ if __name__ == '__main__':
 
     data_name_suffix = [
         '0.2k1',
-        '0.4k1',
-        '0.8k1',
+        # '0.4k1',
+        # '0.8k1',
         # '1.0k1',
         # '0.16k5',
         # '0.08k10',
@@ -93,16 +88,16 @@ if __name__ == '__main__':
         # 'btl-spectral-do',
         # 'btl-spectral-mle',
         # 'btl-random-mle',
-        # 'gbtlneg-spectral_all-do',
-        # 'gbtl-spectral_all-do',
+        # 'gbtlneg-spectral-do',
+        # 'gbtl-spectral-do',
     ]
     algo = [
-        'gbtl-spectral_all-mle',
-        'gbtl-random_all-mle',
-        'gbtlneg-spectral_all-mle',  #
-        'gbtlneg-random_all-mle',  #
-        'gbtlinv-spectral_all-mle',  #
-        'gbtlinv-random_all-mle',  #
+        'gbtl-spectral-mle',
+        'gbtl-random-mle',
+        'gbtlneg-spectral-mle',  #
+        'gbtlneg-random-mle',  #
+        'gbtlinv-spectral-mle',  #
+        'gbtlinv-random-mle',  #
         #
         # 'gbtl-disturb-mle',
         # 'gbtlneg-disturb-mle',  #
@@ -120,19 +115,19 @@ if __name__ == '__main__':
     ]
     paint_pairs = [
         [
-            'gbtl-spectral_all-mle',
+            'gbtl-spectral-mle',
             'gbtl-disturb-mle',
-            'gbtl-random_all-mle',
+            'gbtl-random-mle',
         ],
         [
-            'gbtlneg-spectral_all-mle',
+            'gbtlneg-spectral-mle',
             'gbtlneg-disturb-mle',
-            'gbtlneg-random_all-mle',
+            'gbtlneg-random-mle',
         ],
         [
-            'gbtlinv-spectral_all-mle',
+            'gbtlinv-spectral-mle',
             'gbtlinv-disturb-mle',
-            'gbtlinv-random_all-mle',
+            'gbtlinv-random-mle',
         ],
     ]
 
