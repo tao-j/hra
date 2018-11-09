@@ -180,7 +180,8 @@ def generate_data(data_seed=None,
 
     data_cnt = None
     if beta_gen_func == 'ds':
-        ds = conv_data.ReadingLevelDataset()
+        from data.readinglevel import ReadingLevelDataset
+        ds = ReadingLevelDataset()
         count_mat = ds.count_mat
         s_true = ds.s_true
         data_cnt = ds.data_cnt

@@ -175,7 +175,15 @@ def make_estimation(data_pack, config):
     else:
         raise NotImplementedError
 
-    algorithm.initialize()
+    try:
+        algorithm.initialize()
+    except np.linalg.linalg.LinAlgError:
+        # this_algo_acc.append(0.)
+        print("Cannot solve equation for initialization.")
+        res_pack = Dict()
+        res_pack.init_fail = True
+        return res_pack
+
     require_opt = algorithm.setup_optimizer()
     algorithm.init_print()
 
@@ -188,19 +196,16 @@ def make_estimation(data_pack, config):
 
     beta_est = algorithm.consolidate_result()
     s_est = algorithm.s.data.cpu().numpy()
+    # TODO: determine sign of beta
     # print(np.sum(beta_est > 0), 'sum')
-    if np.sum(beta_est > 0) < np.sum(beta_est < 0):
-        beta_est = -beta_est
-        s_est = -s_est
-        # print('reversed')
+    # if np.sum(beta_est > 0) < np.sum(beta_est < 0):
+    #     beta_est = -beta_est
+    #     s_est = -s_est
+    #     print('reversed')
 
-    rank = np.argsort(s_est)
-    # print(rank)
     res_pack = Dict()
     res_pack.s_est = s_est
     res_pack.beta_est = beta_est
-    # print(res_pack)
-    res_pack.data_pack = data_pack
 
     res_pack.pr_list = algorithm.pr_list[0:]
     res_pack.s_list = algorithm.s_list[0:]

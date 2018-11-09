@@ -13,7 +13,7 @@ import json
 def parse_data_name(data_name, seed, save_path=None, s_true=None, beta_true=None):
     dn_attrs = data_name.split('-')
 
-    beta_gen_params_str = list(map(float, dn_attrs[1].split(',')))
+    beta_gen_params_str = list(map(float, dn_attrs[1].replace('_', '-').split(',')))
     beta_gen_func = dn_attrs[0]
     dn_lookup = {
         'po': ('power', beta_gen_params_str[0]),
@@ -106,6 +106,8 @@ class Job:
         self.data_pack = None
         self.config = None
         self.res_pack = None
+        self.st = ''
+        self.dt = ''
         if not load:
             self.init_gen(data_name, algo_name, seed, s_true, beta_true, save_path)
         else:
@@ -135,16 +137,26 @@ class Job:
         self.config = Dict(j['config'])
         self.res_pack = Dict(j['res_pack'])
         self.data_pack = Dict(j['data_pack'])
+        self.st = Dict(j['st'])
+        self.dt = Dict(j['dt'])
+
+    def serialize(self, st, dt):
+        j = Dict()
+        j.config = self.config.to_dict()
+        j.config['s_true'] = None
+        j.config['beta_true'] = None
+        j.data_pack.s_true = self.data_pack.s_true.tolist()
+        j.data_pack.beta_true = self.data_pack.beta_true.tolist()
+        # don't need count mat
+        j.res_pack = self.res_pack
+        j.res_pack.s_est = self.res_pack.s_est.tolist()
+        j.res_pack.beta_est = self.res_pack.beta_est.tolist()
+        j.st = st
+        j.dt = dt
+        return json.dumps(j)
 
     def run_algo(self):
         self.res_pack = make_estimation(self.data_pack, self.config)
 
     def eval(self):
-        get_eval(self.res_pack)
-
-    def jsonify(self):
-        self.config.to_dict()
-        # self.data_pack.s_true
-        # self.data_pack.beta_true
-        # don't need count mat
-        return None
+        return get_eval(self.data_pack, self.res_pack)

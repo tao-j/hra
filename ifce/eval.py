@@ -2,9 +2,6 @@ import numpy as np
 import scipy
 import scipy.stats
 
-def err_func(pred):
-    return np.abs(np.arange(len(pred)) - pred).mean()
-
 
 def acc_func(pred, true):
     print(scipy.stats.mannwhitneyu(pred, true))
@@ -42,14 +39,13 @@ def acc_func(pred, true):
     return scipy.stats.kendalltau(pred, true)[0]
 
 
-def get_eval(all_pack):
-    s_est = all_pack.s_est
-    rank_pred = s_est
-    rank_true = all_pack.data_pack.s_true
+def get_eval(data_pack, res_pack):
+    s_est = res_pack.s_est
+    rank_true = data_pack.s_true
     if np.any(np.isnan(np.array(s_est))):
         acc = np.nan
     else:
-        acc = acc_func(rank_pred, rank_true)
+        acc = acc_func(s_est, rank_true)
     return acc
 
 

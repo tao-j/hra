@@ -11,6 +11,8 @@ sbatch_template = '''#!/bin/bash
 
 #SBATCH -p gpu
 #SBATCH --gres=gpu:1
+
+#SBATCH -t 49:59:59
 ##SBATCH -p standard
 
 #SBATCH --error="{file_err}.err.log"
@@ -22,12 +24,15 @@ module load anaconda3
 . /apps/software/standard/core/anaconda3/5.2.0/etc/profile.d/conda.sh
 conda activate {env_path}
 
-python main.py {params}
+python experiments/test.py {params}
 '''
 
 if __name__ == '__main__':
 
-    base_str = '0_temp'
+    base_str = '0_'
+    sign = '1'
+    base_str = base_str + sign
+
     if not os.path.isdir(base_str):
         os.mkdir(base_str)
 
@@ -58,7 +63,7 @@ if __name__ == '__main__':
         # 'be-b2,4-j100-i100',
         # 'be-b4,8-j100-i100',
         # 'be-b8,16-j100-i100',
-        'be-b1,5-j100-i100',
+        # 'be-b1,5-j100-i100',
 
         # 'ex-b0.1-j100-i100',
         # 'ex-b0.2-j100-i100',
@@ -71,7 +76,10 @@ if __name__ == '__main__':
         # 'ex-b6.0-j100-i100',
 
         # 'ex-b1.0-j5-i5',
-        # 'be-b1,5-j100-i100'
+        '0.8k1',
+        '0.4k1',
+        '0.2k1',
+        '0.1k1',
     ]
 
     f = open(os.path.join(base_str, base_str+'.txt'), 'w')
@@ -80,8 +88,9 @@ if __name__ == '__main__':
 
     f = open('.config')
     email, env_path = f.read().split(' ')
-    for job_name in data_name_bases:
-        params = [base_str, job_name]
+    for idx, job_name in enumerate(data_name_bases):
+        # params = [base_str, job_name]
+        params = [job_name, sign]
         kwargs = {
             'job_name': job_name,
             'file_err': os.path.join(base_str, job_name),
