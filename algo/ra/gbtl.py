@@ -6,6 +6,7 @@ from algo.ra.ra import RankAggregation
 
 import torch
 import numpy as np
+import scipy.optimize as op
 
 
 class GBTL(RankAggregation):
@@ -163,14 +164,14 @@ class GBTLBeta(GBTL):
 class GBTLGamma(GBTL):
     def __init__(self, data_pack, config):
         super(GBTLGamma, self).__init__(data_pack, config)
-        self.gamma = torch.tensor(np.zeros(self.n_judges), device=self.device, dtype=self.dtype, requires_grad=True)
+        self.gamma = np.zeros(self.n_judges)
         self.parameters.append(self.gamma)
         self.named_parameters['gamma'] = self.gamma
 
     def initialize(self):
         self.get_initializer()
-        self.s.data += torch.tensor(self.s_init, device=self.device, dtype=self.dtype)
-        self.gamma.data += torch.tensor(1. / (self.beta_init + 10e-8), device=self.device, dtype=self.dtype)
+        self.s += self.s_init
+        self.gamma += 1. / (self.beta_init + 10e-8)
 
     def compute_likelihood(self):
         sr_j = self.replicator * self.s  # each column is the same value
@@ -188,16 +189,20 @@ class GBTLGamma(GBTL):
         self.pr = -pr / self.n_pairs
 
     def compute_likelihood_sparse(self):
-        pr = torch.tensor(0, dtype=self.dtype).to(self.device)
+        pr = 0.
+        # s[i] is winner
         for item, cnt in self.data_cnt.items():
             i, j, k = item
-            pr += - cnt * torch.log(torch.exp((self.s[j] - self.s[i]) * self.gamma[k]) + 1)
+            pr += - cnt * np.log(np.exp((self.s[j] - self.s[i]) * self.gamma[k]) + 1)
         self.pr = -pr / self.n_pairs
 
     def compute_likelihood_np(self, s, gamma):
-        sr_j = self.replicator.cpu().numpy() * s  # each column is the same value
+        # s[j] is winner
+        sr_j = self.replicator * s  # each column is the same value
         sr_i = sr_j.T
         si_minus_sj = sr_i - sr_j
+
+        # gamma = np.ones(self.n_judges)
 
         ex = si_minus_sj.reshape((1,) + si_minus_sj.shape)
         iv = gamma.reshape(self.gamma.shape + (1, 1))
@@ -206,8 +211,74 @@ class GBTLGamma(GBTL):
         q_approx = mask * qu
         q_exact = qu - q_approx
         lg = np.log(np.exp(q_exact) + 1) + q_approx
-        pr = - np.sum(self.count_mat.cpu().numpy() * lg)
+        pr = - np.sum(self.count_mat * lg)
         return -pr / self.n_pairs
+
+    def compute_likelihood_np_s(self, s):
+        return self.compute_likelihood_np(s, self.gamma)
+
+    def compute_likelihood_np_gamma(self, gamma):
+        return self.compute_likelihood_np(self.s, gamma)
+
+    def compute_gradient_s(self, s):
+        gamma = self.gamma
+        # gamma = np.ones(self.n_judges)
+        grad = np.zeros(self.n_items)
+        if self.data_cnt:
+            for item, cnt in self.data_cnt.items():
+                # s[i] is winner
+                i, j, k = item
+                v = np.exp(s[j] * gamma[k]) / (np.exp(s[j] * gamma[k]) + np.exp(s[i] * gamma[k]))
+                grad[i] -= cnt * v
+                grad[j] += cnt * v
+        return grad
+
+    def compute_gradient_hessian_gamma(self, gamma):
+        grad = np.zeros(self.n_judges)
+        h = np.zeros(self.n_judges)
+        s = self.s
+        if self.data_cnt:
+            for item, cnt in self.data_cnt.items():
+                if not cnt:
+                    continue
+                # s[i] is winner
+                i, j, k = item
+                grad[k] += cnt * (s[j] - s[i]) / (1 + np.exp(gamma[k] * (s[i] - s[j])))
+                h[k] += cnt * np.power(s[j] - s[i], 2.) * np.exp(gamma[k] * (s[i] + s[j])) / \
+                        np.power(np.exp(gamma[k] * s[i]) + np.exp(gamma[k] * s[j]), 2.)
+        return grad, h
+
+    def compute_gradient_gamma(self, gamma):
+        return self.compute_gradient_hessian_gamma(gamma)[0]
+
+    def compute_hessian_gamma(self, gamma):
+        return self.compute_gradient_hessian_gamma(gamma)[1]
+
+    def optimization_step(self):
+        res_gamma = op.minimize(fun=self.compute_likelihood_np_gamma,
+                    x0=self.gamma,
+                    jac=self.compute_gradient_gamma,
+                                )
+                    # method='Newton-CG',
+                    # hess=self.compute_hessian_gamma)
+
+        res_s = op.minimize(fun=self.compute_likelihood_np_s,
+                    x0=self.s,
+                    method='L-BFGS-B',
+                    jac=self.compute_gradient_s)
+        if not res_s.success:
+            # print('----alter, step for s')
+            # print(res_s)
+            pass
+        self.s = res_s.x
+
+        if not res_gamma.success:
+            # print('----alter, step for gamma')
+            # print(res_gamma)
+            pass
+        self.gamma = res_gamma.x
+
+        return False
 
     def post_process(self):
         self.s.data -= torch.min(self.s.data)
@@ -220,5 +291,5 @@ class GBTLGamma(GBTL):
     #     grad_b = torch.sum(torch.sum(self.count_mat * ex / (torch.exp(-qu) + 1), dim=-1), dim=-1) / n_pairs
 
     def consolidate_result(self):
-        beta_res = 1. / self.gamma.data.cpu().numpy()
+        beta_res = 1. / self.gamma
         return beta_res

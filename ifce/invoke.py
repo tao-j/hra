@@ -93,8 +93,8 @@ def parse_algo_name(algo_name, seed):
 
     algo_kwarg = {
         'init_seed': seed, 'init_method': init,
-        'override_beta': ob, 'max_iter': 2000, 'lr': lr, 'lr_decay': True,
-        'opt': opt, 'opt_func': 'SGD', 'opt_stablizer': 'decouple', 'opt_sparse': False, 'fix_s': fs,
+        'override_beta': ob, 'max_iter': 10, 'lr': lr, 'lr_decay': True,
+        'opt': opt, 'opt_func': 'minfunc', 'opt_stablizer': 'decouple', 'opt_sparse': False, 'fix_s': fs,
         'debug': 1, 'verbose': 0, 'algo': algo,
     }
     return algo_kwarg
@@ -124,10 +124,12 @@ class Job:
         config.popular_correction = False
         config.grad_method = 'auto'
         config.normalize_gradient = True
-        config.GPU = True
+        config.GPU = False
         config.linesearch = False
         config.prob_regularization = True
         config.err_const = 10e-23
+        # config.backend = 'torch'
+        config.backend = 'numpy'
 
         self.data_pack = generate_data(**data_kwarg)
         self.config = config

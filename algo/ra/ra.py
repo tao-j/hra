@@ -1,4 +1,3 @@
-import torch
 import time
 import numpy as np
 from addict import Dict
@@ -35,31 +34,27 @@ class RankAggregation:
         self.pr_noreg_list = []
         self.s_list = []
 
-        # TODO if config.backend == 'torch':
-        self.dtype = torch.double
-        if config.GPU:
-            self.device = torch.device('cuda')
-        else:
-            self.device = torch.device('cpu')
-        self.s = torch.tensor(np.zeros(self.n_items), device=self.device, dtype=self.dtype, requires_grad=True)
-        self.count_mat = torch.tensor(data_pack.count_mat, device=self.device, dtype=self.dtype)
-        self.replicator = torch.tensor(np.ones([self.n_items, self.n_items]),
-                                               dtype=self.dtype, device=self.device)
-        torch.manual_seed(self.init_seed)
-        if config.opt_func == 'SGD':
-            self.opt_func = torch.optim.SGD
-        elif config.opt_func == 'Adam':
-            self.opt_func = torch.optim.Adam
-        else:
-            raise NotImplementedError
+        if config.backend == 'numpy':
+            self.dtype = np.double
+            if config.GPU:
+                print('numpy backend doesn\'t support GPU')
+                raise NotImplementedError
+            self.s = np.zeros(self.n_items)
+            self.count_mat = data_pack.count_mat
+            self.replicator = np.ones([self.n_items, self.n_items])
+
+            np.random.seed(self.init_seed)
+            if config.opt_func == 'minfunc':
+                pass
+            else:
+                raise NotImplementedError
 
     def setup_optimizer(self):
         from algo.init import BTL
         if not self.config.fix_s or self.config.algo == BTL:
             self.parameters.append(self.s)
             self.named_parameters['s'] = self.s
-        self.optimizer = self.opt_func(self.parameters, lr=self.config.lr)
-        self.sched = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, 'min', verbose=True, patience=500)
+
         return self.config.opt
 
     def initialize(self):
@@ -93,7 +88,7 @@ class RankAggregation:
 
         if self.config.normalize_gradient and not self.config.linesearch:
             for pa_index, pa in enumerate(self.parameters):
-                grad_norm = torch.sqrt(torch.sum(pa.grad.data * pa.grad.data))
+                grad_norm = np.sqrt(np.sum(pa.grad.data * pa.grad.data))
                 pa.grad.data /= grad_norm
 
         if self.config.linesearch:
@@ -133,9 +128,9 @@ class RankAggregation:
                 #     break
 
             s.data *= 0.
-            s.data += torch.tensor(test_s, dtype=self.dtype, device=self.device)
+            s.data += test_s
             bb.data *= 0.
-            bb.data += torch.tensor(test_bb, dtype=self.dtype, device=self.device)
+            bb.data += test_bb
         else:
             self.optimizer.step()
 
@@ -145,10 +140,10 @@ class RankAggregation:
         if not self.config.fix_s:
             self.post_process()
 
-        num_pr = self.pr.detach().cpu().numpy().tolist()
-        assert not isinstance(num_pr, list)
-        self.pr_list.append(num_pr)
-        self.s_list.append(np.linalg.norm(self.s.data.cpu().numpy() - self.s_true))
+        # num_pr = self.pr.detach().cpu().numpy().tolist()
+        # assert not isinstance(num_pr, list)
+        # self.pr_list.append(num_pr)
+        # self.s_list.append(np.linalg.norm(self.s.data.cpu().numpy() - self.s_true))
 
         # if self.config.linesearch and len(self.pr_list) > 10 and abs(self.pr_list[-10] - self.pr_list[-1]) / self.pr_list[-10] < 0.001:
         #     return True
@@ -189,13 +184,16 @@ def make_estimation(data_pack, config):
 
     if require_opt:
         for i in range(config.max_iter):
-            algorithm.compute_likelihood()
+            # break
+            # print('s: iter', i, algorithm.s)
+            # print('g: iter', i, algorithm.gamma)
             if algorithm.optimization_step():
-                print('line search stop condition met -------')
+                # print('stop condition met -------')
                 break
+    print(algorithm.s)
 
     beta_est = algorithm.consolidate_result()
-    s_est = algorithm.s.data.cpu().numpy()
+    s_est = algorithm.s
     # TODO: determine sign of beta
     # print(np.sum(beta_est > 0), 'sum')
     # if np.sum(beta_est > 0) < np.sum(beta_est < 0):
@@ -207,8 +205,8 @@ def make_estimation(data_pack, config):
     res_pack.s_est = s_est
     res_pack.beta_est = beta_est
 
-    res_pack.pr_list = algorithm.pr_list[0:]
-    res_pack.s_list = algorithm.s_list[0:]
+    # res_pack.pr_list = algorithm.pr_list[0:]
+    # res_pack.s_list = algorithm.s_list[0:]
 
     if config.linesearch:
         pr_name = 'line'
