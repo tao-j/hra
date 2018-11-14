@@ -9,8 +9,8 @@ sbatch_template = '''#!/bin/bash
 #SBATCH --mail-type=FAIL,REQUEUE,STAGE_OUT,TIME_LIMIT_50
 #SBATCH --mail-user={email}
 
-#SBATCH -p gpu
-#SBATCH --gres=gpu:1
+#SBATCH -p intel
+##SBATCH --gres=gpu:1
 
 #SBATCH -t 49:59:59
 ##SBATCH -p standard
@@ -19,9 +19,11 @@ sbatch_template = '''#!/bin/bash
 #SBATCH --output="{file_out}.out.log"
 ##SBATCH --nodelist=ai0[1-6]
 
-module load anaconda3
+# module load anaconda3
+#. /apps/software/standard/core/anaconda3/5.2.0/etc/profile.d/conda.sh
 
-. /apps/software/standard/core/anaconda3/5.2.0/etc/profile.d/conda.sh
+. /zf19/tj5xx/anaconda3/etc/profile.d/conda.sh
+
 conda activate {env_path}
 
 python experiments/test.py {params}
@@ -29,8 +31,8 @@ python experiments/test.py {params}
 
 if __name__ == '__main__':
 
-    base_str = '0_'
-    sign = '1'
+    base_str = '0_opt'
+    sign = '-1'
     base_str = base_str + sign
 
     if not os.path.isdir(base_str):
