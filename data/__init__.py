@@ -102,7 +102,7 @@ def adjust_ground_truth(s_true, beta_true):
     return s_true, beta_true
 
 
-def sample_one_pair(s_true, beta_k, i, j, k, count_mat):
+def sample_one_pair(s_true, beta_k, i, j, k, count_mat, data_cnt):
     if beta_k < 0:
         s_j = s_true[i] + np.random.gumbel(0.5772 * beta_k, -beta_k)
         s_i = s_true[j] + np.random.gumbel(0.5772 * beta_k, -beta_k)
@@ -111,8 +111,13 @@ def sample_one_pair(s_true, beta_k, i, j, k, count_mat):
         s_j = s_true[j] + np.random.gumbel(-0.5772 * beta_k, beta_k)
     if s_i > s_j:
         count_mat[k][j][i] += 1.
+        tp = (i, j, k)
     else:
         count_mat[k][i][j] += 1.
+        tp = (j, i, k)
+    if tp not in data_cnt:
+        data_cnt[tp] = 0
+    data_cnt[tp] += 1
 
 
 def visualize_count_mat(count_mat, save_path, s_true=None, sort_mat=False):
@@ -178,7 +183,7 @@ def generate_data(data_seed=None,
         data_seed = int(time.time() * 10e7) % 2**32
     np.random.seed(data_seed)
 
-    data_cnt = None
+    data_cnt = {}
     if beta_gen_func == 'ds':
         from data.readinglevel import ReadingLevelDataset
         ds = ReadingLevelDataset()
@@ -219,7 +224,7 @@ def generate_data(data_seed=None,
                         # TODO: this is for each judge providing the ratio of inputs
                         if np.random.random() <= known_pairs_ratio:
                             for _ in range(repeated_comps):
-                                sample_one_pair(s_true, beta_k, i, j, k, count_mat)
+                                sample_one_pair(s_true, beta_k, i, j, k, count_mat, data_cnt)
                                 n_pairs += 1
             else:
                 # random pair
@@ -230,7 +235,7 @@ def generate_data(data_seed=None,
                     while i == j:
                         i = np.random.randint(0, len(s_true))  # TODO: can try other dist.
                         j = np.random.randint(0, len(s_true))
-                        sample_one_pair(s_true, beta_k, i, j, k, count_mat)
+                        sample_one_pair(s_true, beta_k, i, j, k, count_mat, data_cnt)
 
     data_pack = Dict()
     data_pack.n_items = n_items

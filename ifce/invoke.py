@@ -23,7 +23,8 @@ def parse_data_name(data_name, seed, save_path=None, s_true=None, beta_true=None
         'ex': ('ex', beta_gen_params_str[0]),
         'ne': ('negative', beta_gen_params_str[0]),
         'ma': ('manual', beta_gen_params_str),
-        'pa': ('passwd-in', beta_gen_params_str)
+        'pa': ('passed-in', beta_gen_params_str),
+        'ds': ('dataset', beta_gen_params_str)
     }
     _, beta_gen_params = dn_lookup[beta_gen_func]
 

@@ -1,13 +1,14 @@
 import csv
 import numpy as np
+import os
 
 
 class ReadingLevelDataset():
     def __init__(self, path="wsdm_rankagg_2013_readability_crowdflower_data.csv"):
         self.s_true, self.eta_true, self.count_mat, self.data_cnt = self.load_data(path)
 
-    def load_data(self, path):
-        f = open(path)
+    def load_data(self, path, base='data/readinglevel'):
+        f = open(os.path.join(base, path))
         f.readline()
         lines = csv.reader(f)
 
@@ -34,21 +35,21 @@ class ReadingLevelDataset():
             if cols[10] == cols[11]:
                 same += 1
 
-            item_j = cols[13]
-            item_i = cols[12]
+            item_i = cols[12]  # A
+            item_j = cols[13]  # B
             judge_k = cols[8]
-            if item_j not in item_set:
-                item_set[item_j] = doc_id
-                all_scores.append(int(cols[11]))
-                doc_id += 1
-            else:
-                assert all_scores[item_set[item_j]] == int(cols[11])
             if item_i not in item_set:
                 item_set[item_i] = doc_id
                 all_scores.append(int(cols[10]))
                 doc_id += 1
             else:
                 assert all_scores[item_set[item_i]] == int(cols[10])
+            if item_j not in item_set:
+                item_set[item_j] = doc_id
+                all_scores.append(int(cols[11]))
+                doc_id += 1
+            else:
+                assert all_scores[item_set[item_j]] == int(cols[11])
             if judge_k not in judge_set:
                 if np.random.random() < 0.33333:
                     sign = 1
@@ -64,7 +65,7 @@ class ReadingLevelDataset():
                         if col:
                             jk = judge_set[judge_k]
                             go = 0
-                            if col[8] == 'A':
+                            if col[8] == 'A':  # A has larger utility
                                 go = 1
                             elif col[8] == 'B':
                                 go = -1
@@ -76,16 +77,18 @@ class ReadingLevelDataset():
                             if jk < 0:
                                 go = -go
                                 jk = -jk
+                            # winner, loser, judge_id
+                            # mat[loser][winner], judge_id
                             if go == 1:
                                 count_mat[jk][item_set[item_j]][item_set[item_i]] += 1
-                                tp = (item_set[item_j], item_set[item_i], jk)
+                                tp = (item_set[item_i], item_set[item_j], jk)
                                 if tp not in data_cnt:
                                     data_cnt[tp] = 0
                                 data_cnt[tp] += 1
                                 useful += 1
                             if go == -1:
                                 count_mat[jk][item_set[item_i]][item_set[item_j]] += 1
-                                tp = (item_set[item_i], item_set[item_j], jk)
+                                tp = (item_set[item_j], item_set[item_i], jk)
                                 if tp not in data_cnt:
                                     data_cnt[tp] = 0
                                 data_cnt[tp] += 1
@@ -135,7 +138,7 @@ if __name__ == '__main__':
         '\n'.join(
             list(
                 map(
-                    lambda lose, win, anno_id: '{} {} {}'.format(
+                    lambda win, lose, anno_id: '{} {} {}'.format(
                         anno_id+1, win+1, lose+1
                     ), *list(
                         zip(*ds.data_cnt.keys(), *mul_list)

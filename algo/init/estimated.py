@@ -76,6 +76,7 @@ class MLInitializer(PopulationInitializer):
     def computeLogLikelihood(s, gamma, comps):
         LL = 0
         for comp in comps:
+            # s[i] is winner
             si = s[comp[0]]
             sj = s[comp[1]]
             prefered = comp[2]
@@ -110,6 +111,7 @@ class MLInitializer(PopulationInitializer):
         for i in range(np.size(data, 0)):
             for j in range(np.size(data, 1)):
                 if data[i][j]:
+                    # j is winner
                     comp = [j, i, 1]
                     comps = comps + [comp * int(data[i][j])]
         gamma_old = 1 / init
