@@ -15,11 +15,13 @@ if __name__ == '__main__':
     exp_comments = 'debug'
 
     s_true = np.arange(1., 0., -.1)
-    good_betas = np.array([0.01, 0.02, 0.05, 0.1, 0.15, 0.2, 0.3, 0.4, 0.5, 0.75])
+    good_betas = np.array([0.01, 0.02, 0.05, 0.1, 0.15, 0.2, 0.3, 0.4, 0.5, 0.75][3:4])
+    # good_betas = np.array([0.01, 0.02, 0.05, 0.1, 0.15, 0.2, 0.3, 0.4, 0.5, 0.75])
     # good_betas = np.array([0.4, 0.2, 0.1])
     n_good_beta = 3
     n_good_beta_adv = 1
-    bad_betas = np.array([0.2, 0.3, 0.4, 0.5, 0.75, 1.0, 1.5, 2.0, 4.0, 8.0])
+    bad_betas = np.array([0.2, 0.3, 0.4, 0.5, 0.75, 1.0, 1.5, 2.0, 4.0, 8.0][7:8])
+    # bad_betas = np.array([0.2, 0.3, 0.4, 0.5, 0.75, 1.0, 1.5, 2.0, 4.0, 8.0])
     # bad_betas = np.array([4., 1, 0.4])
     n_bad_beta = 6
     n_bad_beta_adv = 2
@@ -66,12 +68,13 @@ if __name__ == '__main__':
 
         # 'gbtl-spectral-mle',
         # 'gbtlneg-moment-mle',
-        'gbtlneg-ml-mle',
+        # 'gbtlneg-ml-mle',
         # 'gbtl-random-mle',
         # 'gbtlneg-spectral-mle',
         # 'gbtlneg-random-mle',
         # 'gbtlinv-spectral-mle',
         # 'gbtlinv-random-mle',
+        'gbtlinv-ml-mle',
         #
         # 'gbtl-disturb-mle',
         # 'gbtlneg-disturb-mle',
@@ -82,11 +85,12 @@ if __name__ == '__main__':
         # 'gbtlinv-disturb_random_b_fix^s-mle',
     ]
 
-    for lr in [0.0005, 0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1.0][3:4]:
-        for al in algo:
+    for al in algo:
+        for lr in [0.0005, 0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1.0][:1]:
             algo_names.append(al+'-'+str(lr))
 
-    data_seeds = [1313, 3838, 6262, 1338, 1362, 3862, 6238, 6213, 3813, 13, 38, 62]
+    data_seeds = [1313, 3838, 6262, 1338, 1362, 3862, 6238, 6213, 3813, 13, 38, 62][1:2]
+    # data_seeds = [1313, 3838, 6262, 1338, 1362, 3862, 6238, 6213, 3813, 13, 38, 62]
     start_t = time.time()
 
     data_names = []

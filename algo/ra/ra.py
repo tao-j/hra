@@ -206,6 +206,7 @@ def make_estimation(data_pack, config):
     res_pack = Dict()
     res_pack.s_est = s_est
     res_pack.beta_est = beta_est
+    print(res_pack)
 
     res_pack.pr_list = algorithm.pr_list[0:]
     res_pack.s_list = algorithm.s_list[0:]

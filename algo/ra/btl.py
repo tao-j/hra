@@ -29,7 +29,11 @@ class BTLNaive(RankAggregation):
         else:
             raise NotImplementedError
 
-        self.s_init = initializer.get_initialization_point()
+        # TODO: temp fix, random initializer doesn't work, because one more param is returned
+        if init_method == INIT_RANDOM:
+            self.s_init, _ = initializer.get_initialization_point()
+        else:
+            self.s_init = initializer.get_initialization_point()
         self.s.data += torch.tensor(self.s_init, device=self.device, dtype=self.dtype)
 
     def compute_likelihood(self):
