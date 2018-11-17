@@ -19,15 +19,30 @@ function [obj,grad]=func_s(s, alpha, para, pair)
             s_k=size(pair{k},1);
         end
         
-        obj=obj-sum(log((alpha(k)*p(pair{k}(:,1))+(1-alpha(k))*p(pair{k}(:,2))))-...
-            log(p(pair{k}(:,1))+p(pair{k}(:,2))))/s_k;
+%         obj=obj-sum(log((alpha(k)*p(pair{k}(:,1))+(1-alpha(k))*p(pair{k}(:,2))))-...
+%             log(p(pair{k}(:,1))+p(pair{k}(:,2))))/s_k;
+%         for idx=1:size(pair{k},1)
+%             winner=pair{k}(idx,1);
+%             loser=pair{k}(idx,2);
+%             v=(p(winner)/(p(winner)+p(loser))...
+%                 -alpha(k)*p(winner)/(alpha(k)*p(winner)+(1-alpha(k))*p(loser)))/s_k;
+%             grad(winner)=grad(winner)+v;
+%             grad(loser)=grad(loser)-v;
+%         end
+        
+        s_i = s(pair{k}(:,1)); % winner
+        s_j = s(pair{k}(:,2)); % loser
+        gamma = alpha(k);
+        obj = obj - sum(log(exp(s_i * gamma) ./ ...
+            (exp(s_i * gamma) + exp(s_j * gamma))))/s_k;
+        
         for idx=1:size(pair{k},1)
-            winner=pair{k}(idx,1);
-            loser=pair{k}(idx,2);
-            v=(p(winner)/(p(winner)+p(loser))...
-                -alpha(k)*p(winner)/(alpha(k)*p(winner)+(1-alpha(k))*p(loser)))/s_k;
-            grad(winner)=grad(winner)+v;
-            grad(loser)=grad(loser)-v;
+            i = pair{k}(idx,1); % winner
+            j = pair{k}(idx,2); % loser
+            v = gamma * exp(gamma * s(j)) ./ ...
+                (exp(s(j) * gamma) + exp(s(i) * gamma));
+            grad(i) = grad(i) - v;
+            grad(j) = grad(j) + v;
         end
     end
 

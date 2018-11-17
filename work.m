@@ -32,7 +32,7 @@ kendall=corr(doc_diff, base_s, 'type', 'Kendall')
 % plot(base_s, doc_diff,  'b*');
 
 s_init=rand(n_obj,1);
-[s,alpha, obj, iter]=alter(s_init, alpha_init, pair, para);
+[s,alpha, obj, iter]=alter(base_s, alpha_init, pair, para);
 auc=calc_auc(doc_diff, s)
 
 % kendall=calc_kendall(doc_diff, s, eps);

@@ -11,12 +11,16 @@ function [s_new,alpha_new, obj, iter]=alter(s, alpha, pair, para)
     
     for iter =1 : maxiter
         
-        % optimization w.r.t. s
-        [s_new, obj_s]=minFunc(@func_s, s, opt_s,  alpha, para, pair);
-        
         % optimization w.r.t. alpha
-        p=@(x)func_alpha(x, s_new, para, pair);
-        [alpha_new, obj(iter)]=minConf_TMP(p, alpha, 0, 1, opt_a);
+        p=@(x)func_alpha(x, s, para, pair);
+        [alpha_new, obj(iter)]=minConf_TMP(p, alpha, -50, 50, opt_a);
+%         [alpha_new, obj(iter)]=minFunc(@func_alpha, alpha, opt_s, s, para, pair);
+        
+        % optimization w.r.t. s
+        [s_new, obj_s]=minFunc(@func_s, s, opt_s,  alpha_new, para, pair);
+        
+%         [alpha_new, obj(iter)]=minFunc(@func_alpha, alpha, opt_s, s_new, para, pair);
+        
         
         if (verbose)
             fprintf('Iter %d, obj: %.4f, obj_s: %.3f, mean_alpha: %.2f\n', iter,  obj(iter), obj_s, mean(alpha_new));
