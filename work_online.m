@@ -2,6 +2,7 @@
 clear;
 data=dlmread('./read_data/all_pair.txt');
 
+
 anno_quality=dlmread('./read_data/annotator_info.txt');
 anno_quality=anno_quality(:,3);
 doc_diff=dlmread('./read_data/doc_info.txt');
@@ -9,7 +10,9 @@ doc_diff=doc_diff(:,2);
 
 n_anno=max(data(:,1));
 n_obj=max(max(data(:,2:3)));
+
 n_data=size(data,1);
+
 %% set up initial parametmers 
 
 mu=zeros(n_obj,1);

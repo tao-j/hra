@@ -292,6 +292,6 @@ end
 end
 
 function [x] = projectBounds(x,LB,UB)
-x(x < LB) = LB(x < LB);
-x(x > UB) = UB(x > UB);
+x(x < LB) = LB;%(x < LB);
+x(x > UB) = UB;%(x > UB);
 end

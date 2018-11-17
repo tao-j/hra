@@ -7,7 +7,7 @@ function [s_new,alpha_new, obj, iter]=alter(s, alpha, pair, para)
         
     obj=zeros(maxiter, 1);
     opt_s=struct('Method', 'lbfgs', 'DISPLAY', 0, 'MaxIter', 500, 'optTol', 1e-5, 'progTol', 1e-7);
-    opt_a =struct('method', 'newton', 'verbose', 0);
+    opt_a=struct('method', 'newton', 'verbose', 0);
     
     for iter =1 : maxiter
         
@@ -15,7 +15,8 @@ function [s_new,alpha_new, obj, iter]=alter(s, alpha, pair, para)
         [s_new, obj_s]=minFunc(@func_s, s, opt_s,  alpha, para, pair);
         
         % optimization w.r.t. alpha
-        [alpha_new, obj(iter)]=minConf_TMP(@func_alpha, alpha, 0, 1, opt_a, s_new, para, pair);
+        p=@(x)func_alpha(x, s_new, para, pair);
+        [alpha_new, obj(iter)]=minConf_TMP(p, alpha, 0, 1, opt_a);
         
         if (verbose)
             fprintf('Iter %d, obj: %.4f, obj_s: %.3f, mean_alpha: %.2f\n', iter,  obj(iter), obj_s, mean(alpha_new));
