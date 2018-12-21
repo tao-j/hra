@@ -69,7 +69,7 @@ class GBTLEpsilon(GBTL):
             pr += - cnt * torch.log(torch.exp((self.s[j] - self.s[i]) / self.eps[k] / self.eps[k]) + 1)
         self.pr = -pr / self.n_pairs
 
-    def compute_likelihood_np(self, s, eps):
+    def compute_likelihood_count_mat(self, s, eps):
         sr_j = self.replicator.cpu().numpy() * s  # each column is the same value
         sr_i = sr_j.T
         si_minus_sj = sr_i - sr_j
@@ -131,7 +131,7 @@ class GBTLBeta(GBTL):
             pr += - cnt * torch.log(torch.exp((self.s[j] - self.s[i]) / self.beta[k]) + 1)
         self.pr = -pr / self.n_pairs
 
-    def compute_likelihood_np(self, s, beta):
+    def compute_likelihood_count_mat(self, s, beta):
         sr_j = self.replicator.cpu().numpy() * s  # each column is the same value
         sr_i = sr_j.T
         si_minus_sj = sr_i - sr_j
@@ -168,12 +168,14 @@ class GBTLGamma(GBTL):
         self.parameters.append(self.gamma)
         self.named_parameters['gamma'] = self.gamma
 
+        self.opt_iter = 0
+
     def initialize(self):
         self.get_initializer()
         self.s += self.s_init
         self.gamma += 1. / (self.beta_init + 10e-8)
 
-    def compute_likelihood(self):
+    def compute_likelihood_count_mat(self, s, gamma=None):
         sr_j = self.replicator * self.s  # each column is the same value
         sr_i = torch.transpose(sr_j, 1, 0)
         si_minus_sj = sr_i - sr_j
@@ -188,15 +190,29 @@ class GBTLGamma(GBTL):
         pr = - torch.sum(self.count_mat * lg)
         self.pr = -pr / self.n_pairs
 
-    def compute_likelihood_sparse(self):
-        pr = 0.
-        # s[i] is winner
-        for item, cnt in self.data_cnt.items():
-            i, j, k = item
-            pr += - cnt * np.log(np.exp((self.s[j] - self.s[i]) * self.gamma[k]) + 1)
-        self.pr = -pr / self.n_pairs
+    # def compute_likelihood_sparse(self):
+    #     pr = 0.
+    #     # s[i] is winner
+    #     for item, cnt in self.data_cnt.items():
+    #         i, j, k = item
+    #         pr += - cnt * np.log(np.exp((self.s[j] - self.s[i]) * self.gamma[k]) + 1)
+    #     self.pr = -pr / self.n_pairs
+    def compute_likelihood_np_exact(self, s, gamma):
+        # s[j] is winner
+        sr_j = self.replicator * s  # each column is the same value
+        sr_i = sr_j.T
+        si_minus_sj = sr_i - sr_j
 
-    def compute_likelihood_np(self, s, gamma):
+        # gamma = np.ones(self.n_judges)
+
+        ex = si_minus_sj.reshape((1,) + si_minus_sj.shape)
+        iv = gamma.reshape(self.gamma.shape + (1, 1))
+        qu = ex * iv
+        lg = np.log(np.exp(qu) + 1)
+        pr = - np.sum(self.count_mat * lg)
+        return -pr / self.n_pairs
+
+    def compute_likelihood_np_approx(self, s, gamma):
         # s[j] is winner
         sr_j = self.replicator * s  # each column is the same value
         sr_i = sr_j.T
@@ -214,21 +230,34 @@ class GBTLGamma(GBTL):
         pr = - np.sum(self.count_mat * lg)
         return -pr / self.n_pairs
 
+    def compute_likelihood_np_sparse(self, s, gamma):
+        pr = 0.
+        if self.data_cnt:
+            for item, cnt in self.data_cnt.items():
+                # s[i] is winner
+                i, j, k = item
+                # if cnt >= 2:
+                #     print(item, cnt)
+                v = (1. + np.exp((s[j] - s[i]) * gamma[k]))
+                pr += - cnt * np.log(v)
+        return -pr /self.n_pairs
+
     def compute_likelihood_np_s(self, s):
-        return self.compute_likelihood_np(s, self.gamma)
+        # return self.compute_likelihood_np_approx(s, self.gamma)
+        # return self.compute_likelihood_np(s, self.gamma)
+        return self.compute_likelihood_np_sparse(s, self.gamma)
 
     def compute_likelihood_np_gamma(self, gamma):
-        return self.compute_likelihood_np(self.s, gamma)
+        return self.compute_likelihood_np_sparse(self.s, gamma)
 
     def compute_gradient_s(self, s):
         gamma = self.gamma
-        # gamma = np.ones(self.n_judges)
         grad = np.zeros(self.n_items)
         if self.data_cnt:
             for item, cnt in self.data_cnt.items():
                 # s[i] is winner
                 i, j, k = item
-                v = np.exp(s[j] * gamma[k]) / (np.exp(s[j] * gamma[k]) + np.exp(s[i] * gamma[k]))
+                v = gamma[k] / (1. + np.exp((s[i] - s[j]) * gamma[k]))
                 grad[i] -= cnt * v
                 grad[j] += cnt * v
         return grad
@@ -243,10 +272,14 @@ class GBTLGamma(GBTL):
                     continue
                 # s[i] is winner
                 i, j, k = item
-                grad[k] += cnt * (s[j] - s[i]) / (1 + np.exp(gamma[k] * (s[i] - s[j])))
-                h[k] += cnt * np.power(s[j] - s[i], 2.) * np.exp(gamma[k] * (s[i] + s[j])) / \
-                        np.power(np.exp(gamma[k] * s[i]) + np.exp(gamma[k] * s[j]), 2.)
-        return grad, h
+                vp = (1 + np.exp(gamma[k] * (s[i] - s[j])))
+                vi = (1 + np.exp(gamma[k] * (s[j] - s[i])))
+                grad[k] += cnt * (s[j] - s[i]) / vp
+                h[k] += cnt * np.power(s[j] - s[i], 2.) / vp / vi
+                # h[k] += cnt * np.power(s[j] - s[i], 2.) * np.exp(gamma[k] * (s[i] + s[j])) / \
+                #         np.power(np.exp(gamma[k] * s[i]) + np.exp(gamma[k] * s[j]), 2.)
+        return grad, np.diag(h)
+        # return grad, h#np.diag(h)
 
     def compute_gradient_gamma(self, gamma):
         return self.compute_gradient_hessian_gamma(gamma)[0]
@@ -258,25 +291,54 @@ class GBTLGamma(GBTL):
         res_gamma = op.minimize(fun=self.compute_likelihood_np_gamma,
                     x0=self.gamma,
                     jac=self.compute_gradient_gamma,
+                                # )
+                    method='Newton-CG',
+                    hess=self.compute_hessian_gamma,
                                 )
-                    # method='Newton-CG',
-                    # hess=self.compute_hessian_gamma)
+        if not res_gamma.success:
+            print('----alter, step for gamma')
+            print(res_gamma)
+            pass
+        self.gamma = res_gamma.x
+
+        # new_gamma = np.ones(self.n_judges)
+        # for k in range(self.n_judges):
+        #     new_gamma[k] = MLInitializer.BetaMLEstimate(self.s, self.count_mat[k])
+        # self.gamma = new_gamma
+        '''
+        self.s = np.array([0.2535809, 0.03395629, 0.02179904, 0.14150608, 0.15534016,
+                           0.22660238, 0.48947107, 0.52969226, 0.78312124, 0.84059461])
+        self.gamma = np.ones(self.n_judges)
+        print('===================')
+        print('likeli gamma=1')
+        print(self.compute_likelihood_np_sparse(self.s, self.gamma), 'LL sparse')
+        print(self.compute_likelihood_np_approx(self.s, self.gamma), 'LL approx')
+        print(self.compute_likelihood_np_exact(self.s, self.gamma), 'LL exact')
+        print(self.compute_gradient_s(self.s), 'grad s')
+        print(self.compute_gradient_hessian_gamma(self.gamma), 'grad hessian gamms')
+
+        print('likeli gamma=blablah')
+        self.gamma = np.array([33, 33, 22, 11, 55, 22, 22, 11, 88])
+        print(self.compute_likelihood_np_sparse(self.s, self.gamma), 'LL sparse')
+        print(self.compute_likelihood_np_approx(self.s, self.gamma), 'LL approx')
+        print(self.compute_likelihood_np_exact(self.s, self.gamma), 'LL exact')
+        print(self.compute_gradient_s(self.s), 'grad s')
+        print(self.compute_gradient_hessian_gamma(self.gamma), 'grad hessian gamms')
+        print('====================')
+        if self.opt_iter == 0:
+            self.s = np.random.random(self.n_items)
+        self.opt_iter += 1
+        '''
 
         res_s = op.minimize(fun=self.compute_likelihood_np_s,
                     x0=self.s,
                     method='L-BFGS-B',
                     jac=self.compute_gradient_s)
         if not res_s.success:
-            # print('----alter, step for s')
-            # print(res_s)
+            print('----alter, step for s')
+            print(res_s)
             pass
         self.s = res_s.x
-
-        if not res_gamma.success:
-            # print('----alter, step for gamma')
-            # print(res_gamma)
-            pass
-        self.gamma = res_gamma.x
 
         return False
 

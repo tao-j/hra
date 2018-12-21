@@ -43,8 +43,9 @@ class BTLNaive(RankAggregation):
             j, i, k = item
             pr += - cnt * np.log(np.exp((self.s[i] - self.s[j])) + 1)
         self.pr = -pr / self.n_pairs
+        return self.pr
 
-    def compute_likelihood_np(self, s, beta=None):
+    def compute_likelihood_count_mat(self, s, beta=None):
         # s_j is winner
         sr_j = self.replicator * s  # each column is the same value
         sr_i = sr_j.T
@@ -62,23 +63,20 @@ class BTLNaive(RankAggregation):
                 v = np.exp(s[j]) / (np.exp(s[j]) + np.exp(s[i]))
                 grad[i] -= cnt * v
                 grad[j] += cnt * v
-        # else:
-        #     mix = np.sum(self.count_mat, axis=0)
-        #     for i in range(self.n_items):
-        #         for j in range(self.n_items):
-        #             cnt = mix[i][j]
-        #             if not cnt:
-        #                 continue
-        #             v = np.exp(s[j]) / (np.exp(s[j]) + np.exp(s[i]))
-        #             grad[i] -= cnt * v
-        #             grad[j] += cnt * v
         return grad
 
     def optimization_step(self):
-        res = op.minimize(fun=self.compute_likelihood_np,
-                    x0=np.zeros(self.n_items),
-                    method='L-BFGS-B',
-                    jac=self.compute_gradient_s)
+       #  self.s = np.array([0.2535809 , 0.03395629, 0.02179904, 0.14150608, 0.15534016,
+       # 0.22660238, 0.48947107, 0.52969226, 0.78312124, 0.84059461])
+       #  print('============================')
+       #  print(self.compute_likelihood_sparse(), 'LL sparse')
+       #  print(self.compute_likelihood_count_mat(self.s), 'LL ')
+       #  print(self.compute_gradient_s(self.s), 'gradient s')
+       #  print('==============================')
+        res = op.minimize(fun=self.compute_likelihood_count_mat,
+                          x0=np.zeros(self.n_items),
+                          method='L-BFGS-B',
+                          jac=self.compute_gradient_s)
         if not res.success:
             print(res)
         self.s = res.x

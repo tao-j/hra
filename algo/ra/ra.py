@@ -73,7 +73,7 @@ class RankAggregation:
     def compute_likelihood(self):
         raise NotImplementedError
 
-    def compute_likelihood_np(self, s, beta):
+    def compute_likelihood_count_mat(self, s, beta):
         raise NotImplementedError
 
     def optimization_step(self):
@@ -110,7 +110,7 @@ class RankAggregation:
             test_s = test_x[:self.n_items]
             test_bb = test_x[self.n_items:]
 
-            test_p = self.compute_likelihood_np(test_s, test_bb)
+            test_p = self.compute_likelihood_count_mat(test_s, test_bb)
             old_p = np.array(self.pr.data)
             # old_p2 = self.compute_likelihood_np(self.s.detach().cpu().numpy(), self.beta.detach().cpu().numpy())
             # print('starting search, initial p: ', old_p, 'test_p', test_p)
@@ -122,7 +122,7 @@ class RankAggregation:
                 test_bb = test_x[self.n_items:]
                 # print('new step:', t, 'test_p: ', test_p)
                 # prev_p = test_p
-                test_p = self.compute_likelihood_np(test_s, test_bb)
+                test_p = self.compute_likelihood_count_mat(test_s, test_bb)
                 # if (prev_p == test_p) / prev_p < 0.0001:
                 # if prev_p == test_p:
                 #     break
@@ -185,11 +185,12 @@ def make_estimation(data_pack, config):
     if require_opt:
         for i in range(config.max_iter):
             # break
-            # print('s: iter', i, algorithm.s)
+            # print('s before opt: iter', i, algorithm.s)
             # print('g: iter', i, algorithm.gamma)
             if algorithm.optimization_step():
                 # print('stop condition met -------')
                 break
+            # print('====================')
     print(algorithm.s)
 
     beta_est = algorithm.consolidate_result()
