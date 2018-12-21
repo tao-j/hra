@@ -20,9 +20,8 @@ sbatch_template = '''#!/bin/bash
 ##SBATCH --nodelist=ai0[1-6]
 
 # module load anaconda3
-#. /apps/software/standard/core/anaconda3/5.2.0/etc/profile.d/conda.sh
 
-. /zf19/tj5xx/anaconda3/etc/profile.d/conda.sh
+. {conda_sh}
 
 conda activate {env_path}
 
@@ -31,7 +30,7 @@ python experiments/test.py {params}
 
 if __name__ == '__main__':
 
-    base_str = '0_opt'
+    base_str = '2_new_data'
     sign = '-1'
     base_str = base_str + sign
 
@@ -39,49 +38,50 @@ if __name__ == '__main__':
         os.mkdir(base_str)
 
     data_name_bases = [
-        # 'ga-b3.0,0.4-j100-i100',
-        # 'ga-b2.5,0.5-j100-i100',
-        # 'ga-b2,1-j100-i100',
-        # 'ga-b1.5,1.5-j100-i100',
-        # 'ga-b1.25,3.0-j100-i100',
-        # 'ga-b1.25,4.0-j100-i100',
+        'ga-3.0,0.4-j25-i25',
+        'ga-2.5,0.5-j25-i25',
+        'ga-2,1-j25-i25',
+        'ga-1.5,1.5-j25-i25',
+        'ga-1.25,3.0-j25-i25',
+        'ga-1.25,4.0-j25-i25',
 
-        # 'ga-b5,1-j100-i100',
-        # 'ga-b2,2-j100-i100',
-        # 'ga-b1,1-j100-i100',
-        # 'ga-b1,2-j100-i100',
-        # 'ga-b1,5-j100-i100',
+        'ga-5,1-j100-i100',
+        'ga-2,2-j100-i100',
+        'ga-1,1-j100-i100',
+        'ga-1,2-j100-i100',
+        'ga-1,5-j100-i100',
 
-        # 'be-b5,1-j100-i100',
-        # 'be-b16,8-j100-i100',
-        # 'be-b8,4-j100-i100',
-        # 'be-b4,2-j100-i100',
-        # 'be-b2,1-j100-i100',
-        # 'be-b8,8-j100-i100',
-        # 'be-b4,4-j100-i100',
-        # 'be-b2,2-j100-i100',
-        # 'be-b1,1-j100-i100',
-        # 'be-b1,2-j100-i100',
-        # 'be-b2,4-j100-i100',
-        # 'be-b4,8-j100-i100',
-        # 'be-b8,16-j100-i100',
-        # 'be-b1,5-j100-i100',
+        # 'be-5,1-j100-i100',
+        # 'be-16,8-j100-i100',
+        # 'be-8,4-j100-i100',
+        # 'be-4,2-j100-i100',
+        # 'be-2,1-j100-i100',
+        # 'be-8,8-j100-i100',
+        # 'be-4,4-j100-i100',
+        # 'be-2,2-j100-i100',
+        # 'be-1,1-j100-i100',
+        # 'be-1,2-j100-i100',
+        # 'be-2,4-j100-i100',
+        # 'be-4,8-j100-i100',
+        # 'be-8,16-j100-i100',
+        # 'be-1,5-j100-i100',
 
-        # 'ex-b0.1-j100-i100',
-        # 'ex-b0.2-j100-i100',
-        # 'ex-b0.4-j100-i100',
-        # 'ex-b0.8-j100-i100',
-        # 'ex-b1.0-j100-i100',
-        # 'ex-b1.5-j100-i100',
-        # 'ex-b2.0-j100-i100',
-        # 'ex-b4.0-j100-i100',
-        # 'ex-b6.0-j100-i100',
+        # 'ex-0.1-j100-i100',
+        # 'ex-0.2-j100-i100',
+        # 'ex-0.4-j100-i100',
+        # 'ex-0.8-j100-i100',
+        # 'ex-1.0-j100-i100',
+        # 'ex-1.5-j100-i100',
+        # 'ex-2.0-j100-i100',
+        # 'ex-4.0-j100-i100',
+        # 'ex-6.0-j100-i100',
 
-        # 'ex-b1.0-j5-i5',
-        '0.8k1',
-        '0.4k1',
-        '0.2k1',
-        '0.1k1',
+        # 'ex-1.0-j5-i5',
+
+        # '0.8k1',
+        # '0.4k1',
+        # '0.2k1',
+        # '0.1k1',
     ]
 
     f = open(os.path.join(base_str, base_str+'.txt'), 'w')
@@ -89,7 +89,7 @@ if __name__ == '__main__':
     f.close()
 
     f = open('.config')
-    email, env_path = f.read().split(' ')
+    email, env_path, conda_sh = f.read().split(' ')
     for idx, job_name in enumerate(data_name_bases):
         # params = [base_str, job_name]
         params = [job_name, sign]
@@ -100,6 +100,7 @@ if __name__ == '__main__':
             'params': ' '.join(params),
             'email': email,
             'env_path': env_path,
+            'conda_sh': conda_sh
         }
         sbatch = sbatch_template.format(**kwargs)
         pprint(kwargs)

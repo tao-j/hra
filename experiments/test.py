@@ -11,25 +11,27 @@ from addict import Dict
 if __name__ == '__main__':
 
     base_str = 'experiments'
-    exp_name = '13.9 full_pos_neg'
-    exp_comments = 'test optimization'
+    exp_name = '14.00 full_pos_neg'
+    exp_comments = 'test for real ds'
 
     s_true = np.arange(1., 0., -.1)
-    good_betas = np.array([0.01, 0.02, 0.05, 0.1, 0.15, 0.2, 0.3, 0.4, 0.5, 0.75])
+    # good_betas = np.array([0.01, 0.02, 0.05, 0.1, 0.15, 0.2, 0.3, 0.4, 0.5, 0.75])
+    good_betas = np.array([0.4])
+    # good_betas = np.array([0.01])
     # good_betas = np.array([0.4, 0.2, 0.1])
-    # good_betas = np.array([0.4])
     n_good_beta = 3
     n_good_beta_adv = 1
-    bad_betas = np.array([0.2, 0.3, 0.4, 0.5, 0.75, 1.0, 1.5, 2.0, 4.0, 8.0])
+    # bad_betas = np.array([0.2, 0.3, 0.4, 0.5, 0.75, 1.0, 1.5, 2.0, 4.0, 8.0])
+    bad_betas = np.array([4.])
+    # bad_betas = np.array([0.2])
     # bad_betas = np.array([4., 1, 0.4])
-    # bad_betas = np.array([4.])
     n_bad_beta = 6
     n_bad_beta_adv = 2
 
     n_judges = n_good_beta + n_bad_beta
     n_items = len(s_true)
 
-    data_name_base = '-'.join(['pa', '{}', 'j' + str(n_judges), 'i' + str(n_items)])
+    data_name_base = '-'.join(['ds', '{}', 'j' + str(n_judges), 'i' + str(n_items)])
 
     data_name_suffix = [
         '0.8k1',
@@ -90,7 +92,7 @@ if __name__ == '__main__':
         for al in algo:
             algo_names.append(al+'-'+str(lr))
 
-    data_seeds = [1313, 3838, 6262, 1338, 1362, 3862, 6238, 6213, 3813, 13, 38, 62][:12]
+    data_seeds = [1313, 3838, 6262, 1338, 1362, 3862, 6238, 6213, 3813, 13, 38, 62][:1]
     start_t = time.time()
 
     data_names = []

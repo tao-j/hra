@@ -24,9 +24,10 @@ if __name__ == '__main__':
         exit(-1)
 
     data_name_suffix = [
+        '0.1k1',
         '0.2k1',
-        # '0.4k1',
-        # '0.8k1',
+        '0.4k1',
+        '0.8k1',
         # '1.0k1',
         # '0.16k5',
         # '0.08k10',
@@ -86,18 +87,20 @@ if __name__ == '__main__':
 
     algo_names = [
         # 'btl-spectral-do',
-        # 'btl-spectral-mle',
-        # 'btl-random-mle',
         # 'gbtlneg-spectral-do',
         # 'gbtl-spectral-do',
     ]
     algo = [
-        'gbtl-spectral-mle',
-        'gbtl-random-mle',
-        'gbtlneg-spectral-mle',  #
-        'gbtlneg-random-mle',  #
-        'gbtlinv-spectral-mle',  #
-        'gbtlinv-random-mle',  #
+        # 'btl-spectral-mle',
+        # 'btl-random-mle',
+
+        # 'gbtl-spectral-mle',
+        # 'gbtl-random-mle',
+        # 'gbtlneg-spectral-mle',  #
+        # 'gbtlneg-random-mle',  #
+        # 'gbtlinv-spectral-mle',  #
+        # 'gbtlinv-random-mle',  #
+        'gbtlinv-ml-mle',
         #
         # 'gbtl-disturb-mle',
         # 'gbtlneg-disturb-mle',  #
@@ -141,7 +144,7 @@ if __name__ == '__main__':
             algo_names.append(al+'-'+str(lr))
 
     # keep 2:3
-    data_seeds = [1313, 3838, 6262, 1338, 1362, 3862, 6238, 6213, 3813, 13, 38, 62][2:3]
+    data_seeds = [1313, 3838, 6262, 1338, 1362, 3862, 6238, 6213, 3813, 13, 38, 62][:4]
     start_t = time.time()
 
     if eval:
