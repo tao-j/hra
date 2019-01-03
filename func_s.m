@@ -47,21 +47,6 @@ function [obj,grad]=func_s(s, alpha, para, pair)
             grad(j) = grad(j) + v;
         end
 
-        %% HRA-N sigma
-%         s_i = s(pair{k}(:,1)); % winner
-%         s_j = s(pair{k}(:,2)); % loser
-%         sigma = alpha(k);
-%         temp_cdf = normcdf((s_i-s_j)/sigma);
-%         obj = obj - sum(log(temp_cdf))/s_k;
-%         
-%         for idx=1:size(pair{k},1)
-%             i = pair{k}(idx,1); % winner
-%             j = pair{k}(idx,2); % loser
-%             v = 1. / temp_cdf(idx) * normpdf((s(i)-s(j))/sigma);
-%             grad(i) = grad(i) - v*s(i);
-%             grad(j) = grad(j) + v*s(j);
-%         end
-
         %% HRA-N gamma
 %         s_i = s(pair{k}(:,1)); % winner
 %         s_j = s(pair{k}(:,2)); % loser

@@ -37,14 +37,6 @@ function [obj,grad, H]=func_alpha(alpha, s, para, pair)
         h(k)=sum((s_j - s_i).^2.* exp(gamma * (s_i + s_j)) ./ ...
             (exp(gamma * s_i) + exp(gamma * s_j)).^2)/s_k + reg_alpha;
 
-        %% HRA-N sigma
-%         s_j = s(pair{k}(:,2));
-%         s_i = s(pair{k}(:,1));
-%         sigma = alpha(k);
-%         temp_cdf = normcdf((s_i-s_j)/sigma);
-%         obj = obj - sum(log(temp_cdf))/s_k;
-%         grad(k)=sum(1. ./ temp_cdf .* normpdf((s_i-s_j)/sigma) .* (s_i - s_j) / sigma / sigma)/s_k + reg_alpha * sigma;
-        
         %% HRA-N gamma
 %         s_j = s(pair{k}(:,2));
 %         s_i = s(pair{k}(:,1));
