@@ -21,12 +21,14 @@ function [obj,grad, H]=func_alpha(alpha, s, para, pair)
             s_k=size(pair{k},1);
         end
 
+        %% CrowdBT
 %         alpha_tmp=(alpha(k)*p(pair{k}(:,1))+(1-alpha(k))*p(pair{k}(:,2)));
 %         diff_tmp=p(pair{k}(:,1))-p(pair{k}(:,2));
 %         obj=obj-sum(log(alpha_tmp)-log(p(pair{k}(:,1))+p(pair{k}(:,2))))/s_k;        
 %         grad(k)=-sum(diff_tmp./alpha_tmp)/s_k+reg_alpha*alpha(k);
 %         h(k)=sum((diff_tmp./alpha_tmp).^2)/s_k+reg_alpha;
-                
+
+        %% HRA-G gamma
         s_j = s(pair{k}(:,2));
         s_i = s(pair{k}(:,1));
         gamma = alpha(k);
