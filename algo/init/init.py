@@ -70,6 +70,8 @@ class RandomInitializer(Initializer):
         n_judges = p.shape[0]
         n_items = p.shape[1]
 
+        # import time
+        # np.random.seed(int(time.time()))
         s_init = np.random.random(n_items)
         s_init -= np.min(s_init)
         s_init /= np.sum(s_init)
