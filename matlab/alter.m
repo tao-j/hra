@@ -45,9 +45,9 @@ function [s_new,alpha_new, obj, iter]=alter(s, alpha, pair, para)
         s_new = s - lr*grad_s;
         
         %%
-%         if (verbose)
-%             fprintf('Iter %d, obj: %.4f, obj_s: %.3f, mean_alpha: %.2f\n', iter,  obj(iter), obj_s, mean(alpha_new));
-%         end
+        if (verbose)
+            fprintf('Iter %d, obj: %.4f, obj_s: %.3f, mean_alpha: %.2f\n', iter,  obj(iter), obj_s, mean(alpha_new));
+        end
         
 %         if ( iter > 10 && abs((obj(iter) - obj(iter-1))/obj(iter)) <tol)
         if (iter == 100)
