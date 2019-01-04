@@ -18,15 +18,15 @@ end
 
 
 %% set up initial parametmers 
-s_init=rand(n_obj,1);
-alpha_init=rand(n_anno,1);
-sc=1;
-para=struct('reg_0', 10, 'reg_s', 0, 'reg_alpha', 0,  'maxiter', 200, 's0', 0,...
+s_init=ones(n_obj,1);
+alpha_init=ones(n_anno,1);
+sc=2.;
+para=struct('reg_0', 1., 'reg_s', 0, 'reg_alpha', 0,  'maxiter', 200, 's0', 0,...
              'uni_weight', true, 'verbose', true, 'tol', 1e-5);
 
 %% baseline
 opt_s=struct('Method', 'lbfgs', 'DISPLAY', 0, 'MaxIter', 300, 'optTol', 1e-5, 'progTol', 1e-7);
-base_s=minFunc(@func_s, s_init*sc, opt_s, (alpha_init*sc), para, pair);
+base_s=minFunc(@func_s, s_init*sc, opt_s, (alpha_init/sc), para, pair);
 % obj=ones(1000,1);
 % s = s_init;
 % lr = 10e-1;
@@ -44,7 +44,7 @@ kendall=corr(doc_diff, base_s, 'type', 'Kendall')
 % plot(base_s, doc_diff,  'b*');
 
 %% HRA
-[s,alpha, obj, iter]=alter(s_init, (alpha_init*sc), pair, para);
+[s,alpha, obj, iter]=alter(base_s*sc, (alpha_init/sc), pair, para);
 alt_opt_auc=calc_auc(doc_diff, s)
 
 % kendall=calc_kendall(doc_diff, s, eps);
@@ -52,4 +52,8 @@ alt_opt_auc=calc_auc(doc_diff, s)
 kendall=corr(doc_diff, s, 'type', 'Kendall')
 % plot(s, doc_diff,  'r.');
 plot(obj)
-% m = mean(mean(s * ones(1, n_anno) ./ alpha'))
+
+m = s * ones(1, n_anno);
+[~, idx] = sort(m);
+spread = (m(idx(n_anno/3)) - m(idx(n_anno/3*2))) .* alpha;
+mean_ratio = mean(spread)
