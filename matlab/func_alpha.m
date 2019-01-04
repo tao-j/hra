@@ -1,10 +1,10 @@
 function [obj,grad, H]=func_alpha(alpha, s, para, pair)
   
-    s0=getopt(para, 's0', 0);
-    reg_0=getopt(para, 'reg_0', 0);
-    reg_alpha=getopt(para, 'reg_alpha', 0);
-    reg_s=getopt(para, 'reg_s', 0);
-    uni_weight=getopt(para, 'uni_weight', true);
+    s0=getOpt(para, 's0', 0);
+    reg_0=getOpt(para, 'reg_0', 0);
+    reg_alpha=getOpt(para, 'reg_alpha', 0);
+    reg_s=getOpt(para, 'reg_s', 0);
+    uni_weight=getOpt(para, 'uni_weight', true);
     
     n_anno=length(alpha);
     p=exp(s);
@@ -60,16 +60,4 @@ function [obj,grad, H]=func_alpha(alpha, s, para, pair)
     obj=obj+reg_s*norm(s,2).^2/2+reg_alpha*norm(alpha,2).^2/2;
     H=sparse(1:n_anno, 1:n_anno, h);
     
-end
-
-function [v] = getopt(options,opt,default)
-if isfield(options,opt)
-    if ~isempty(getfield(options,opt))
-        v = getfield(options,opt);
-    else
-        v = default;
-    end
-else
-    v = default;
-end
 end
