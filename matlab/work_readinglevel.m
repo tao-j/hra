@@ -18,11 +18,17 @@ end
 
 
 %% set up initial parametmers 
-s_init=ones(n_obj,1);
+s_init=rand(n_obj,1);
 alpha_init=ones(n_anno,1);
 sc=2.;
-para=struct('reg_0', 1., 'reg_s', 0, 'reg_alpha', 0,  'maxiter', 200, 's0', 0,...
+para=struct('reg_0', 1., 'reg_s', 0, 'reg_alpha', 0,  'maxiter', 300, 's0', 0,...
              'uni_weight', true, 'verbose', true, 'tol', 1e-5);
+para.algo='CrowdBT';
+para.algo='HRA-G';
+para.algo='HRA-N';
+%para.algo='HRA-E';
+para.opt_method='s->a+GD';
+%para.lr=0.75*10e-4;
 
 %% baseline
 opt_s=struct('Method', 'lbfgs', 'DISPLAY', 0, 'MaxIter', 300, 'optTol', 1e-5, 'progTol', 1e-7);
