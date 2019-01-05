@@ -100,9 +100,9 @@ function [obj,grad]=func_s(s, alpha, para, pair)
                 for idx=1:size(pair{k},1)
                     i = pair{k}(idx,1); % winner
                     j = pair{k}(idx,2); % loser
-                    v = 1. / temp_cdf(idx) * normpdf((s(i)-s(j))*gamma);
-                    grad(i) = grad(i) - v*s(i);
-                    grad(j) = grad(j) + v*s(j);
+                    v = gamma ./ temp_cdf(idx) * normpdf((s(i)-s(j))*gamma);
+                    grad(i) = grad(i) - v;
+                    grad(j) = grad(j) + v;
                 end
 
             case 'HRA-E'
