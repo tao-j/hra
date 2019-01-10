@@ -55,14 +55,14 @@ function [s_new,alpha_new, obj, iter]=alter(s, alpha, pair, para)
                 alpha_new = alpha - lr*grad_a;
         end
         %%
-        if (verbose && mod(iter, interval) == 0)
-            fprintf('Iter %d, obj: %.4f, obj_s: %.3f, mean_alpha: %.2f\n', iter,  obj(iter), obj_s, mean(alpha_new));
-        end
+%         if (verbose && mod(iter, interval) == 0)
+%             fprintf('Iter %d, obj: %.4f, obj_s: %.3f, mean_alpha: %.2f\n', iter,  obj(iter), obj_s, mean(alpha_new));
+%         end
         
 %         if ( iter > 10 && abs((obj(iter) - obj(iter-1))/obj(iter)) <tol)
         if (iter == 300)
                 lr = lr / 5;
-                fprintf('div lr by 10');
+                fprintf('div lr by 5\n');
         else
             alpha=alpha_new;
             s=s_new;
