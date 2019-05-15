@@ -2,20 +2,34 @@
 clear;
 addpath(genpath('./minFunc_2012'));
 addpath(genpath('./minConf'));
-data=dlmread('./data/readinglevel/all_pair.txt');
-% anno_quality=dlmread('./data/readinglevel/annotator_info.txt');
+data=dlmread('./data/countrypopulation/all_pair_32.txt');
+% anno_quality=dlmread('./data/country_population/annotator_info.txt');
 % anno_quality=anno_quality(:,3);
-doc_diff=dlmread('./data/readinglevel/doc_info.txt');
-doc_diff=doc_diff(:,2);
+doc_diff=dlmread('./data/countrypopulation/doc_info_32.txt');
+doc_diff=-doc_diff(:,1);
 
-data(:,1) = 1;
 n_anno=max(data(:,1));
 n_obj=max(max(data(:,2:3)));
 
 pair=cell(n_anno,1);
+rng('shuffle');
+keep_ratio = 0.25;
+out_f = fopen('./cp16/temp2.txt', 'a+');
 for i=1:n_anno
-    pair{i}=data(data(:,1)==i, 2:3);
+    dp=data(data(:,1)==i, 2:3);
+    [mlen ,~] = size(dp);
+    dp=dp(1:ceil(mlen*keep_ratio), :);
+    
+%     dp(dp(:,2) == 2, :) = [dp(dp(:,2) == 2, 2), dp(dp(:,2) == 2, 1)];
+%     z = dp(:,2) == 2;
+%     [k1, k2] = size(dp(dp(:,1) == 2, :));
+%     if k1 ~= 0
+%         fprintf("found")
+%     end
+    pair{i}=dp;
 end
+
+% random trials
 
 exps=20;
 res = cell(exps, 1);
@@ -26,7 +40,7 @@ res_idx = 1;
 
 %% set up initial parametmers 
 sc=1;
-para=struct('reg_0', 10., 'reg_s', 0, 'reg_alpha', 0,  'maxiter', 600, 's0', 0,...
+para=struct('reg_0', 1., 'reg_s', 0, 'reg_alpha', 0,  'maxiter', 600, 's0', 0,...
              'uni_weight', true, 'verbose', true, 'tol', 1e-5);
 % para.algo='CrowdBT';
 % para.algo='HRA-G';
@@ -34,7 +48,7 @@ para=struct('reg_0', 10., 'reg_s', 0, 'reg_alpha', 0,  'maxiter', 600, 's0', 0,.
 % para.algo='HRA-E';
 % para.opt_method='a->s+GD';
 % para.opt_method='s->a+newton+crowdbt';
-para.lr=5*10e-5;
+para.lr=5*10e-4;
 
 %% Random BTL-MLE
 name='Random BTL-MLE';
@@ -276,5 +290,6 @@ legend(legend_cell);
 % mean_ratio = mean(spread)
 
 for i=1:res_idx-1
+   fprintf(out_f, '%s,%f,%f\n', res{i}{1,1},res{i}{1,2},res{i}{1,3}); 
    fprintf('%s,%f,%f\n', res{i}{1,1},res{i}{1,2},res{i}{1,3}); 
 end

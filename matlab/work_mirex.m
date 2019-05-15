@@ -2,13 +2,22 @@
 clear;
 addpath(genpath('./minFunc_2012'));
 addpath(genpath('./minConf'));
-data=dlmread('./data/readinglevel/all_pair.txt');
-% anno_quality=dlmread('./data/readinglevel/annotator_info.txt');
+
+queries = fopen(['./data/mirex/all_queries.txt']);
+query = "123";
+while 1
+query = strip(fgets(queries));
+fprintf("%s\n", [query]);
+if query == ""
+    break;
+end
+query = ['_' query];
+data=dlmread(['./data/mirex/all_pair' query '.txt']);
+% anno_quality=dlmread('./data/country_population/annotator_info.txt');
 % anno_quality=anno_quality(:,3);
-doc_diff=dlmread('./data/readinglevel/doc_info.txt');
+doc_diff=dlmread(['./data/mirex/doc_info' query '.txt']);
 doc_diff=doc_diff(:,2);
 
-data(:,1) = 1;
 n_anno=max(data(:,1));
 n_obj=max(max(data(:,2:3)));
 
@@ -26,7 +35,7 @@ res_idx = 1;
 
 %% set up initial parametmers 
 sc=1;
-para=struct('reg_0', 10., 'reg_s', 0, 'reg_alpha', 0,  'maxiter', 600, 's0', 0,...
+para=struct('reg_0', 1., 'reg_s', 0, 'reg_alpha', 0,  'maxiter', 600, 's0', 0,...
              'uni_weight', true, 'verbose', true, 'tol', 1e-5);
 % para.algo='CrowdBT';
 % para.algo='HRA-G';
@@ -34,7 +43,7 @@ para=struct('reg_0', 10., 'reg_s', 0, 'reg_alpha', 0,  'maxiter', 600, 's0', 0,.
 % para.algo='HRA-E';
 % para.opt_method='a->s+GD';
 % para.opt_method='s->a+newton+crowdbt';
-para.lr=5*10e-5;
+para.lr=5*10e-4;
 
 %% Random BTL-MLE
 name='Random BTL-MLE';
@@ -49,10 +58,10 @@ random_btl_mle_s=minFunc(@func_s, s_init*sc, opt_s, ones(n_anno,1)/sc, para, pai
 % for iter=1:1000
 %     [obj(iter), g_s] = func_s(s, ones(n_anno, 1)*50, para, pair);
 %     s = s - lr*g_s;
-%     base_auc=calc_auc(doc_diff, s)
+%     base_auc=ndcg(doc_diff, s)
 % end
 % base_s = s;
-auc=calc_auc(doc_diff, random_btl_mle_s);
+auc=ndcg(doc_diff, random_btl_mle_s);
 kendall=corr(doc_diff, random_btl_mle_s, 'type', 'Kendall');
 hold off;
 plot(1:60,ones(60, 1) * func_s(random_btl_mle_s, ones(n_anno, 1)/sc, para, pair),markers{res_idx});
@@ -72,7 +81,7 @@ para.algo='HRA-G';
 para.opt_method='a->s+GD';
 [s,alpha, obj, iter]=alter(random_btl_mle_s*sc, (alpha_init/sc), pair, para);
 
-auc=calc_auc(doc_diff, s);
+auc=ndcg(doc_diff, s);
 kendall=corr(doc_diff, s, 'type', 'Kendall');
 res{res_idx}={name, auc, kendall};
 legend_cell{res_idx}=name;
@@ -86,7 +95,7 @@ para.algo='HRA-N';
 para.opt_method='a->s+GD';
 [s,alpha, obj, iter]=alter(random_btl_mle_s*sc, (alpha_init/sc), pair, para);
 
-auc=calc_auc(doc_diff, s);
+auc=ndcg(doc_diff, s);
 kendall=corr(doc_diff, s, 'type', 'Kendall');
 res{res_idx}={name, auc, kendall};
 plot(obj(1:10:600), markers{res_idx});legend_cell{res_idx}=name;
@@ -99,7 +108,7 @@ para.algo='HRA-E';
 para.opt_method='a->s+GD';
 [s,alpha, obj, iter]=alter(random_btl_mle_s*sc, (alpha_init/sc), pair, para);
 
-auc=calc_auc(doc_diff, s);
+auc=ndcg(doc_diff, s);
 kendall=corr(doc_diff, s, 'type', 'Kendall');
 res{res_idx}={name, auc, kendall};
 plot(obj(1:10:600), markers{res_idx});legend_cell{res_idx}=name;
@@ -114,7 +123,7 @@ s_init=ones(n_obj,1);
 alpha_init=ones(n_anno,1);
 [s, alpha, obj, iter]=alter(s_init*sc, (alpha_init/sc), pair, para);
 
-auc=calc_auc(doc_diff, s);
+auc=ndcg(doc_diff, s);
 kendall=corr(doc_diff, s, 'type', 'Kendall');
 res{res_idx}={name, auc, kendall};
 plot(obj(1:10:600), markers{res_idx});legend_cell{res_idx}=name;
@@ -133,7 +142,7 @@ para.opt_method='s->a+newton+crowdbt';
 opt_s=struct('Method', 'lbfgs', 'DISPLAY', 0, 'MaxIter', 300, 'optTol', 1e-5, 'progTol', 1e-7);
 [s, alpha, obj, iter]=alter(s_init*sc, (alpha_init/sc), pair, para);
 
-auc=calc_auc(doc_diff, s);
+auc=ndcg(doc_diff, s);
 kendall=corr(doc_diff, s, 'type', 'Kendall');
 res{res_idx}={name, auc, kendall};
 plot(obj(1:10:600), markers{res_idx});legend_cell{res_idx}=name;
@@ -151,7 +160,7 @@ para.algo='HRA-G';
 para.opt_method='s->a+GD';
 [s,alpha, obj, iter]=alter(s_init*sc, (alpha_init/sc), pair, para);
 
-auc=calc_auc(doc_diff, s);
+auc=ndcg(doc_diff, s);
 kendall=corr(doc_diff, s, 'type', 'Kendall');
 res{res_idx}={name, auc, kendall};
 plot(obj(1:10:600), markers{res_idx});legend_cell{res_idx}=name;
@@ -162,10 +171,10 @@ name='Random + HRA-N s->a';
 fprintf([name '\n']);
 para.algo='HRA-N';
 para.opt_method='s->a+GD';
-[s,alpha, obj, iter]=alter(s_init*sc, (alpha_init/sc), pair, para);
+[random_hra_n_s,alpha, obj, iter]=alter(s_init*sc, (alpha_init/sc), pair, para);
 
-auc=calc_auc(doc_diff, s);
-kendall=corr(doc_diff, s, 'type', 'Kendall');
+auc=ndcg(doc_diff, random_hra_n_s);
+kendall=corr(doc_diff, random_hra_n_s, 'type', 'Kendall');
 res{res_idx}={name, auc, kendall};
 plot(obj(1:10:600), markers{res_idx});legend_cell{res_idx}=name;
 res_idx=res_idx+1;
@@ -177,7 +186,7 @@ para.algo='HRA-E';
 para.opt_method='s->a+GD';
 [s,alpha, obj, iter]=alter(s_init*sc, (alpha_init/sc), pair, para);
 
-auc=calc_auc(doc_diff, s);
+auc=ndcg(doc_diff, s);
 kendall=corr(doc_diff, s, 'type', 'Kendall');
 res{res_idx}={name, auc, kendall};
 plot(obj(1:10:600), markers{res_idx});legend_cell{res_idx}=name;
@@ -190,7 +199,7 @@ res_idx=res_idx+1;
 % para.opt_method='a->s+GD';
 % [s,alpha, obj, iter]=alter(random_crowd_bt_s*sc, (alpha_init/sc), pair, para);
 % 
-% auc=calc_auc(doc_diff, s);
+% auc=ndcg(doc_diff, s);
 % kendall=corr(doc_diff, s, 'type', 'Kendall');
 % res{res_idx}={name, auc, kendall};
 % plot(obj(1:10:600), markers{res_idx});legend_cell{res_idx}=name;
@@ -203,7 +212,7 @@ res_idx=res_idx+1;
 % para.opt_method='a->s+GD';
 % [s,alpha, obj, iter]=alter(random_crowd_bt_s*sc, (alpha_init/sc), pair, para);
 % 
-% auc=calc_auc(doc_diff, s);
+% auc=ndcg(doc_diff, s);
 % kendall=corr(doc_diff, s, 'type', 'Kendall');
 % res{res_idx}={name, auc, kendall};
 % plot(obj(1:10:600), markers{res_idx});legend_cell{res_idx}=name;
@@ -216,7 +225,7 @@ res_idx=res_idx+1;
 % para.opt_method='a->s+GD';
 % [s,alpha, obj, iter]=alter(random_crowd_bt_s*sc, (alpha_init/sc), pair, para);
 % 
-% auc=calc_auc(doc_diff, s);
+% auc=ndcg(doc_diff, s);
 % kendall=corr(doc_diff, s, 'type', 'Kendall');
 % res{res_idx}={name, auc, kendall};
 % plot(obj(1:10:600), markers{res_idx});legend_cell{res_idx}=name;
@@ -230,7 +239,7 @@ para.algo='HRA-G';
 para.opt_method='s->a+GD';
 [s,alpha, obj, iter]=alter(ones(n_obj, 1)*sc, (alpha_init/sc), pair, para);
 
-auc=calc_auc(doc_diff, s);
+auc=ndcg(doc_diff, s);
 kendall=corr(doc_diff, s, 'type', 'Kendall');
 res{res_idx}={name, auc, kendall};
 plot(obj(1:10:600), markers{res_idx});legend_cell{res_idx}=name;
@@ -243,7 +252,7 @@ para.algo='HRA-N';
 para.opt_method='s->a+GD';
 [s,alpha, obj, iter]=alter(ones(n_obj, 1)*sc, (alpha_init/sc), pair, para);
 
-auc=calc_auc(doc_diff, s);
+auc=ndcg(doc_diff, s);
 kendall=corr(doc_diff, s, 'type', 'Kendall');
 res{res_idx}={name, auc, kendall};
 plot(obj(1:10:600), markers{res_idx});legend_cell{res_idx}=name;
@@ -256,7 +265,7 @@ para.algo='HRA-E';
 para.opt_method='s->a+GD';
 [s,alpha, obj, iter]=alter(ones(n_obj, 1)*sc, (alpha_init/sc), pair, para);
 
-auc=calc_auc(doc_diff, s);
+auc=ndcg(doc_diff, s);
 kendall=corr(doc_diff, s, 'type', 'Kendall');
 res{res_idx}={name, auc, kendall};
 if auc < 0.0001
@@ -276,5 +285,7 @@ legend(legend_cell);
 % mean_ratio = mean(spread)
 
 for i=1:res_idx-1
-   fprintf('%s,%f,%f\n', res{i}{1,1},res{i}{1,2},res{i}{1,3}); 
+   fprintf('%s,%.2f,%.2f\n', res{i}{1,1},res{i}{1,2},res{i}{1,3}); 
+end
+
 end
