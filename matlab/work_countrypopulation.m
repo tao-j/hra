@@ -2,10 +2,10 @@
 clear;
 addpath(genpath('./minFunc_2012'));
 addpath(genpath('./minConf'));
-data=dlmread('./data/countrypopulation/all_pair_32.txt');
+data=dlmread('./data/countrypopulation/all_pair.txt');
 % anno_quality=dlmread('./data/country_population/annotator_info.txt');
 % anno_quality=anno_quality(:,3);
-doc_diff=dlmread('./data/countrypopulation/doc_info_32.txt');
+doc_diff=dlmread('./data/countrypopulation/doc_info.txt');
 doc_diff=-doc_diff(:,1);
 
 n_anno=max(data(:,1));
@@ -13,7 +13,7 @@ n_obj=max(max(data(:,2:3)));
 
 pair=cell(n_anno,1);
 rng('shuffle');
-keep_ratio = 0.25;
+keep_ratio = 1.00;
 out_f = fopen('./cp16/temp2.txt', 'a+');
 for i=1:n_anno
     dp=data(data(:,1)==i, 2:3);
@@ -31,7 +31,7 @@ end
 
 % random trials
 
-exps=20;
+exps=20; % allocated slots for experiments
 res = cell(exps, 1);
 legends_cell = cell(exps, 1);
 markers = {'+','o','*','.','x','s','d','^','v','>','<','p','h','+','o','*','.','x','s','d','^','v','>','<','p','h'};
@@ -49,6 +49,7 @@ para=struct('reg_0', 1., 'reg_s', 0, 'reg_alpha', 0,  'maxiter', 600, 's0', 0,..
 % para.opt_method='a->s+GD';
 % para.opt_method='s->a+newton+crowdbt';
 para.lr=5*10e-4;
+para.alpha_rate = 0.25;
 
 %% Random BTL-MLE
 name='Random BTL-MLE';
@@ -76,48 +77,45 @@ res{res_idx}={name, auc, kendall};
 res_idx=res_idx+1;
 
 
-% base_kendall=calc_kendall(doc_diff, base_s, eps);
-% plot(base_s, doc_diff,  'b*'); 
-
-%% BTL-MLE + HRA-G
-name='BTL-MLE + HRA-G';
-fprintf([name '\n']);
-para.algo='HRA-G';
-para.opt_method='a->s+GD';
-[s,alpha, obj, iter]=alter(random_btl_mle_s*sc, (alpha_init/sc), pair, para);
-
-auc=calc_auc(doc_diff, s);
-kendall=corr(doc_diff, s, 'type', 'Kendall');
-res{res_idx}={name, auc, kendall};
-legend_cell{res_idx}=name;
-res_idx=res_idx+1;
-plot(obj(1:10:600), markers{res_idx})
-
-%% BTL-MLE + HRA-N
-name='BTL-MLE + HRA-N';
-fprintf([name '\n']);
-para.algo='HRA-N';
-para.opt_method='a->s+GD';
-[s,alpha, obj, iter]=alter(random_btl_mle_s*sc, (alpha_init/sc), pair, para);
-
-auc=calc_auc(doc_diff, s);
-kendall=corr(doc_diff, s, 'type', 'Kendall');
-res{res_idx}={name, auc, kendall};
-plot(obj(1:10:600), markers{res_idx});legend_cell{res_idx}=name;
-res_idx=res_idx+1;
-
-%% BTL-MLE + HRA-E
-name='BTL-MLE + HRA-E';
-fprintf([name '\n']);
-para.algo='HRA-E';
-para.opt_method='a->s+GD';
-[s,alpha, obj, iter]=alter(random_btl_mle_s*sc, (alpha_init/sc), pair, para);
-
-auc=calc_auc(doc_diff, s);
-kendall=corr(doc_diff, s, 'type', 'Kendall');
-res{res_idx}={name, auc, kendall};
-plot(obj(1:10:600), markers{res_idx});legend_cell{res_idx}=name;
-res_idx=res_idx+1;
+% %% BTL-MLE + HRA-G
+% name='BTL-MLE + HRA-G';
+% fprintf([name '\n']);
+% para.algo='HRA-G';
+% para.opt_method='a->s+GD';
+% [s,alpha, obj, iter]=alter(random_btl_mle_s*sc, (alpha_init/sc), pair, para);
+% 
+% auc=calc_auc(doc_diff, s);
+% kendall=corr(doc_diff, s, 'type', 'Kendall');
+% res{res_idx}={name, auc, kendall};
+% legend_cell{res_idx}=name;
+% res_idx=res_idx+1;
+% plot(obj(1:10:600), markers{res_idx})
+% 
+% %% BTL-MLE + HRA-N
+% name='BTL-MLE + HRA-N';
+% fprintf([name '\n']);
+% para.algo='HRA-N';
+% para.opt_method='a->s+GD';
+% [s,alpha, obj, iter]=alter(random_btl_mle_s*sc, (alpha_init/sc), pair, para);
+% 
+% auc=calc_auc(doc_diff, s);
+% kendall=corr(doc_diff, s, 'type', 'Kendall');
+% res{res_idx}={name, auc, kendall};
+% plot(obj(1:10:600), markers{res_idx});legend_cell{res_idx}=name;
+% res_idx=res_idx+1;
+% 
+% %% BTL-MLE + HRA-E
+% name='BTL-MLE + HRA-E';
+% fprintf([name '\n']);
+% para.algo='HRA-E';
+% para.opt_method='a->s+GD';
+% [s,alpha, obj, iter]=alter(random_btl_mle_s*sc, (alpha_init/sc), pair, para);
+% 
+% auc=calc_auc(doc_diff, s);
+% kendall=corr(doc_diff, s, 'type', 'Kendall');
+% res{res_idx}={name, auc, kendall};
+% plot(obj(1:10:600), markers{res_idx});legend_cell{res_idx}=name;
+% res_idx=res_idx+1;
 
 %% Ones + CrowdBT
 name='Ones CrowdBT';
@@ -136,15 +134,13 @@ res_idx=res_idx+1;
 
 ones_crowd_bt_s=s;
 
-%% staring random init
-s_init=rand(n_obj,1);
-alpha_init=ones(n_anno,1);
-%% Random CrowdBT
-name='Random CrowdBT';
+%% Ones + CrowdTCV
+name='Ones CrowdTCV';
 fprintf([name '\n']);
-para.algo='CrowdBT';
+para.algo='CrowdTCV';
 para.opt_method='s->a+newton+crowdbt';
-opt_s=struct('Method', 'lbfgs', 'DISPLAY', 0, 'MaxIter', 300, 'optTol', 1e-5, 'progTol', 1e-7);
+s_init=ones(n_obj,1);
+alpha_init=ones(n_anno,1);
 [s, alpha, obj, iter]=alter(s_init*sc, (alpha_init/sc), pair, para);
 
 auc=calc_auc(doc_diff, s);
@@ -153,49 +149,70 @@ res{res_idx}={name, auc, kendall};
 plot(obj(1:10:600), markers{res_idx});legend_cell{res_idx}=name;
 res_idx=res_idx+1;
 
-random_crowd_bt_s=s;
+ones_crowd_bt_s=s;
 
-% base_kendall=calc_kendall(doc_diff, base_s, eps);
-% plot(base_s, doc_diff,  'b*'); 
+%%
 
-%% Random + HRA-G
-name='Random + HRA-G s->a';
-fprintf([name '\n']);
-para.algo='HRA-G';
-para.opt_method='s->a+GD';
-[s,alpha, obj, iter]=alter(s_init*sc, (alpha_init/sc), pair, para);
-
-auc=calc_auc(doc_diff, s);
-kendall=corr(doc_diff, s, 'type', 'Kendall');
-res{res_idx}={name, auc, kendall};
-plot(obj(1:10:600), markers{res_idx});legend_cell{res_idx}=name;
-res_idx=res_idx+1;
-
-%% Random + HRA-N
-name='Random + HRA-N s->a';
-fprintf([name '\n']);
-para.algo='HRA-N';
-para.opt_method='s->a+GD';
-[s,alpha, obj, iter]=alter(s_init*sc, (alpha_init/sc), pair, para);
-
-auc=calc_auc(doc_diff, s);
-kendall=corr(doc_diff, s, 'type', 'Kendall');
-res{res_idx}={name, auc, kendall};
-plot(obj(1:10:600), markers{res_idx});legend_cell{res_idx}=name;
-res_idx=res_idx+1;
-
-%% Random + HRA-E
-name='Random + HRA-E s->a';
-fprintf([name '\n']);
-para.algo='HRA-E';
-para.opt_method='s->a+GD';
-[s,alpha, obj, iter]=alter(s_init*sc, (alpha_init/sc), pair, para);
-
-auc=calc_auc(doc_diff, s);
-kendall=corr(doc_diff, s, 'type', 'Kendall');
-res{res_idx}={name, auc, kendall};
-plot(obj(1:10:600), markers{res_idx});legend_cell{res_idx}=name;
-res_idx=res_idx+1;
+% %% staring random init
+% s_init=rand(n_obj,1);
+% alpha_init=ones(n_anno,1);
+% %% Random CrowdBT
+% name='Random CrowdBT';
+% fprintf([name '\n']);
+% para.algo='CrowdBT';
+% para.opt_method='s->a+newton+crowdbt';
+% opt_s=struct('Method', 'lbfgs', 'DISPLAY', 0, 'MaxIter', 300, 'optTol', 1e-5, 'progTol', 1e-7);
+% [s, alpha, obj, iter]=alter(s_init*sc, (alpha_init/sc), pair, para);
+% 
+% auc=calc_auc(doc_diff, s);
+% kendall=corr(doc_diff, s, 'type', 'Kendall');
+% res{res_idx}={name, auc, kendall};
+% plot(obj(1:10:600), markers{res_idx});legend_cell{res_idx}=name;
+% res_idx=res_idx+1;
+% 
+% random_crowd_bt_s=s;
+% 
+% % base_kendall=calc_kendall(doc_diff, base_s, eps);
+% % plot(base_s, doc_diff,  'b*'); 
+% 
+% %% Random + HRA-G
+% name='Random + HRA-G s->a';
+% fprintf([name '\n']);
+% para.algo='HRA-G';
+% para.opt_method='s->a+GD';
+% [s,alpha, obj, iter]=alter(s_init*sc, (alpha_init/sc), pair, para);
+% 
+% auc=calc_auc(doc_diff, s);
+% kendall=corr(doc_diff, s, 'type', 'Kendall');
+% res{res_idx}={name, auc, kendall};
+% plot(obj(1:10:600), markers{res_idx});legend_cell{res_idx}=name;
+% res_idx=res_idx+1;
+% 
+% %% Random + HRA-N
+% name='Random + HRA-N s->a';
+% fprintf([name '\n']);
+% para.algo='HRA-N';
+% para.opt_method='s->a+GD';
+% [s,alpha, obj, iter]=alter(s_init*sc, (alpha_init/sc), pair, para);
+% 
+% auc=calc_auc(doc_diff, s);
+% kendall=corr(doc_diff, s, 'type', 'Kendall');
+% res{res_idx}={name, auc, kendall};
+% plot(obj(1:10:600), markers{res_idx});legend_cell{res_idx}=name;
+% res_idx=res_idx+1;
+% 
+% %% Random + HRA-E
+% name='Random + HRA-E s->a';
+% fprintf([name '\n']);
+% para.algo='HRA-E';
+% para.opt_method='s->a+GD';
+% [s,alpha, obj, iter]=alter(s_init*sc, (alpha_init/sc), pair, para);
+% 
+% auc=calc_auc(doc_diff, s);
+% kendall=corr(doc_diff, s, 'type', 'Kendall');
+% res{res_idx}={name, auc, kendall};
+% plot(obj(1:10:600), markers{res_idx});legend_cell{res_idx}=name;
+% res_idx=res_idx+1;
 
 % %% CrowdBT + HRA-G
 % name='CrowdBT + HRA-G';

@@ -31,7 +31,7 @@ if adv_flag
 else
     adv_str = "";
 end
-out_f = fopen(sprintf("./data/simulation/1pair/dump_%s%s.txt", dist_flag, adv_str), 'w');
+out_f = fopen(sprintf("./data/simulation/dump_%s%s.txt", dist_flag, adv_str), 'w');
 
 [gg_s, ~] = size(gamma_goods);
 [gb_s, ~] = size(gamma_bads);
