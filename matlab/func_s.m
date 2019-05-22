@@ -1,4 +1,4 @@
-function [obj,grad]=func_s(s, alpha, para, pair)
+function [obj, grad]=func_s(s, alpha, para, pair)
 
     s0=getOpt(para, 's0', 0);
     reg_0=getOpt(para, 'reg_0', 0);
@@ -7,28 +7,28 @@ function [obj,grad]=func_s(s, alpha, para, pair)
     uni_weight=getOpt(para, 'uni_weight', true);
     algo=getOpt(para, 'algo', 'CrowdBT');
     
+    delta = 1e-19; % add a very small number when do division and log
+    
     p=exp(s);
     p0=exp(s0);
     switch algo
-        case 'CrowdBT'
+        case {'CrowdBT', 'HRA-G'}
             obj=-reg_0*(sum(log(p0./(p0+p)))+sum(log(p./(p0+p))));
             grad=2*reg_0*(p./(p0+p))-reg_0;
-        case 'HRA-G'
-            obj=-reg_0*(sum(log(p0./(p0+p)))+sum(log(p./(p0+p))));
-            grad=2*reg_0*(p./(p0+p))-reg_0;
-        case 'HRA-N'
+        
+        case {'CrowdTCV', 'HRA-N'}
             x = s - s0;
             temp_cdf = normcdf(x);
-            obj = - reg_0*sum(log(temp_cdf));
-            v = 1. ./ temp_cdf .* normpdf(x);
+            obj = - reg_0*sum(log(temp_cdf + delta));
+            v = 1. ./ (temp_cdf + delta) .* normpdf(x);
             grad =  -reg_0*v;
             
             x = s0 - s;
             temp_cdf = normcdf(x);
-            obj = obj - reg_0*sum(log(temp_cdf));
-            v = 1. ./ temp_cdf .* normpdf(x);
+            obj = obj - reg_0*sum(log(temp_cdf + delta));
+            v = 1. ./ (temp_cdf + delta) .* normpdf(x);
             grad = grad + reg_0*v;
-            
+        
         case 'HRA-E'
             x = s - s0;
             pos = 1/4 * exp(-x).*(x+2);
@@ -74,6 +74,32 @@ function [obj,grad]=func_s(s, alpha, para, pair)
                     grad(loser)=grad(loser)-v;
                 end
 
+            case 'CrowdTCV'
+                s_j = s(pair{k}(:,2));
+                s_i = s(pair{k}(:,1));
+                eta = alpha(k);
+                cdfij = normcdf((s_i - s_j)/sqrt(2));
+                cdfji = normcdf((s_j - s_i)/sqrt(2));
+                pdfij = normpdf((s_i - s_j)/sqrt(2));
+                pdfji = normpdf((s_j - s_i)/sqrt(2));
+                tmp = eta*cdfij+(1-eta)*cdfji;
+                obj=obj-sum(log(tmp + delta))/s_k;
+                for idx=1:size(pair{k},1)
+                    winner=pair{k}(idx,1);
+                    loser=pair{k}(idx,2);
+                    v= 1.0 ./ (tmp(idx) + delta) ...
+                     * (eta*pdfij(idx) - (1-eta)*pdfji(idx));
+                    grad(winner)=grad(winner)-v;
+                    grad(loser)=grad(loser)+v;
+                end
+                % Only works if each columns of pair_idx_i has unique number, or we need a trick at grad(pair_idx_i)=grad(pair_idx_i)-v;
+                % pair_idx_i = pair{k}(:, 1);
+                % pair_idx_j = pair{k}(:, 2);
+                % v = 1.0 ./ (tmp + 1e-19) ...
+                %     .* (eta*pdfij - (1-eta)*pdfji);
+                % grad(pair_idx_i)=grad(pair_idx_i)-v;
+                % grad(pair_idx_j)=grad(pair_idx_j)+v;
+
             case 'HRA-G'
                 s_i = s(pair{k}(:,1)); % winner
                 s_j = s(pair{k}(:,2)); % loser
@@ -95,12 +121,13 @@ function [obj,grad]=func_s(s, alpha, para, pair)
                 s_j = s(pair{k}(:,2)); % loser
                 gamma = alpha(k);
                 temp_cdf = normcdf((s_i-s_j)*gamma);
-                obj = obj - sum(log(temp_cdf))/s_k;
+                temp_pdf = normpdf((s_i-s_j)*gamma);
+                obj = obj - sum(log(temp_cdf + delta))/s_k;
 
                 for idx=1:size(pair{k},1)
                     i = pair{k}(idx,1); % winner
                     j = pair{k}(idx,2); % loser
-                    v = gamma ./ temp_cdf(idx) * normpdf((s(i)-s(j))*gamma);
+                    v = gamma ./ (temp_cdf(idx) + delta) * temp_pdf(idx);
                     grad(i) = grad(i) - v;
                     grad(j) = grad(j) + v;
                 end

@@ -2,36 +2,29 @@
 function [s_new,alpha_new, obj, iter, s_lst, gamma_lst]=alter(s, alpha, pair, para)
     
     
-    maxiter=getOpt(para, 'maxiter', 100);
+    maxiter_in=getOpt(para, 'maxiter', 100);
     verbose=getOpt(para, 'verbose', true);
     tol=getOpt(para, 'tol', 1e-2);
     opt_method=getOpt(para, 'opt_method', 's->a+GD');
     lr=getOpt(para, 'lr', 10e-3);
-    alpha_rate=getOpt(para, 'alpha_rate', 1.);
+    alpha_rate=getOpt(para, 'alpha_rate', 0.05);
         
-    obj=zeros(maxiter, 1);
     opt_s=struct('Method', 'lbfgs', 'DISPLAY', 0, 'MaxIter', 500, 'optTol', 1e-5, 'progTol', 1e-7);
     opt_a=struct('method', 'newton', 'verbose', 0);
     interval=1;
     
-%     switch opt_method
-%         case 'a->s+lbfgs'
-%             maxiter=15;
-% 
-%         case 'a->s+newton'
-%             maxiter=15;
-% 
-%         case 's->a+lbfgs'
-%             maxiter=15;
-% 
-%         case 's->a+newton'
-%             maxiter=15;
-% 
-%         case 's->a+newton+crowdbt'
-%             maxiter=15;
-%     end
+    maxiter=maxiter_in;
+    obj=zeros(maxiter, 1);
     s_lst=repmat(s, 1, maxiter)*0;
     gamma_lst=repmat(alpha, 1, maxiter)*0;
+    switch opt_method
+        % (quasi) second order methods usually converges in 10 iters, set
+        % to 15 to save some time 
+        case {'a->s+lbfgs', 'a->s+newton', ...
+                's->a+lbfgs', 's->a+newton', ...
+                's->a+newton+crowdbt'}
+            maxiter = min(15, maxiter);
+    end
     for iter=1 : maxiter
         
         switch opt_method
@@ -105,9 +98,11 @@ function [s_new,alpha_new, obj, iter, s_lst, gamma_lst]=alter(s, alpha, pair, pa
         alpha=alpha_new;
         s=s_new-mean(s_new);
 %         s=s_new;
-    end     
-    
-    obj=obj(1:iter); 
+    end
+    % fill in the blanks for easier plotting
+    if maxiter ~= maxiter_in
+       obj(maxiter:end) = obj(maxiter); 
+    end
 end
 
 
