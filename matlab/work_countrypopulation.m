@@ -40,7 +40,7 @@ res_idx = 1;
 
 %% set up initial parametmers 
 sc=1;
-para=struct('reg_0', 1., 'reg_s', 0, 'reg_alpha', 0,  'maxiter', 600, 's0', 0,...
+para=struct('reg_0', 10., 'reg_s', 0, 'reg_alpha', 0,  'maxiter', 600, 's0', 0,...
              'uni_weight', true, 'verbose', true, 'tol', 1e-5);
 % para.algo='CrowdBT';
 % para.algo='HRA-G';
@@ -48,12 +48,38 @@ para=struct('reg_0', 1., 'reg_s', 0, 'reg_alpha', 0,  'maxiter', 600, 's0', 0,..
 % para.algo='HRA-E';
 % para.opt_method='a->s+GD';
 % para.opt_method='s->a+newton+crowdbt';
-para.lr=5*10e-4;
+% para.lr=5*10e-4; % for reg_0 = 5, 10
+para.lr=5*10e-4; % for reg_0 = 0., 1.
 para.alpha_rate = 0.25;
 
 %% Random BTL-MLE
 name='Random BTL-MLE';
 para.algo='HRA-G';
+s_init=rand(n_obj,1);
+alpha_init=ones(n_anno,1);
+opt_s=struct('Method', 'lbfgs', 'DISPLAY', 0, 'MaxIter', 300, 'optTol', 1e-5, 'progTol', 1e-7);
+random_btl_mle_s=minFunc(@func_s, s_init*sc, opt_s, ones(n_anno,1)/sc, para, pair);
+% obj=ones(1000,1);
+% s = s_init;
+% lr = 10e-1;
+% for iter=1:1000
+%     [obj(iter), g_s] = func_s(s, ones(n_anno, 1)*50, para, pair);
+%     s = s - lr*g_s;
+%     base_auc=calc_auc(doc_diff, s)
+% end
+% base_s = s;
+auc=calc_auc(doc_diff, random_btl_mle_s);
+kendall=corr(doc_diff, random_btl_mle_s, 'type', 'Kendall');
+hold off;
+plot(1:60,ones(60, 1) * func_s(random_btl_mle_s, ones(n_anno, 1)/sc, para, pair),markers{res_idx});
+hold all;
+legend_cell{res_idx}=name;
+res{res_idx}={name, auc, kendall};
+res_idx=res_idx+1;
+
+%% Random TCV-MLE
+name='Random TCV-MLE';
+para.algo='HRA-N';
 s_init=rand(n_obj,1);
 alpha_init=ones(n_anno,1);
 opt_s=struct('Method', 'lbfgs', 'DISPLAY', 0, 'MaxIter', 300, 'optTol', 1e-5, 'progTol', 1e-7);
