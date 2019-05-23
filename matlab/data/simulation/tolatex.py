@@ -26,9 +26,20 @@ def txt2tex(all, dist):
             max_idx = np.argmax(pn[:3], axis=0)
             for i in range(9):
                 sel = pn[:, i] == pn[max_idx[i]][i]
-                for sel_i, sel_flag in enumerate(sel):
-                    if sel_flag:
-                        pp[sel_i][i] = "\\textbf{" + pp[sel_i][i] + "}"
+                if np.sum(sel) > 1:
+                    for sel_i, sel_flag in enumerate(sel):
+                        if sel_flag:
+                            pp[sel_i][i] = "\\underline{" + pp[sel_i][i] + "}"
+                else:
+                    for sel_i, sel_flag in enumerate(sel):
+                        if sel_flag:
+                            pp[sel_i][i] = "\\textbf{" + pp[sel_i][i] + "}"
+
+            # sort_idx = np.argsort(-pn[:3], axis=0)
+            # for i in range(9):
+            #     n1, n2 = sort_idx[0:2, i]
+            #     if (pn[n1][i] - pn[n2][i]) > 0.004:
+            #         pp[n1][i] = "\\textbf{" + pp[n1][i] + "}"
 
             line_p = []
             for i in range(3):
