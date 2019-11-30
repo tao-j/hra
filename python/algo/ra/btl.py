@@ -90,33 +90,33 @@ class BTLNaive(RankAggregation):
             print(res)
         self.s = res.x
         return True
-'''# pytorch-backend
-    def compute_likelihood(self):
-        sr_j = self.replicator * self.s  # each column is the same value
-        sr_i = torch.transpose(sr_j, 1, 0)
-        si_minus_sj = sr_i - sr_j
-
-        pr = - torch.sum(torch.sum(self.count_mat, dim=0) * torch.log(torch.exp(si_minus_sj) + 1))
-        self.pr = -pr / self.n_pairs
-
-    def compute_likelihood_sparse(self):
-        pr = torch.tensor(0, dtype=self.dtype).to(self.device)
-        for item, cnt in self.data_cnt.items():
-            i, j, k = item
-            pr += - cnt * torch.log(torch.exp((self.s[j] - self.s[i])) + 1)
-        self.pr = -pr / self.n_pairs
-
-    def compute_likelihood_np(self, s, beta):
-        sr_j = self.replicator.cpu().numpy() * s  # each column is the same value
-        sr_i = sr_j.T
-        si_minus_sj = sr_i - sr_j
-
-        pr = - np.sum(np.sum(self.count_mat.cpu().numpy(), dim=0) * np.log(np.exp(si_minus_sj) + 1))
-        return -pr / self.n_pairs
-
-    def post_process(self):
-        self.s.data -= torch.min(self.s.data)
-'''
+    '''# pytorch-backend
+        def compute_likelihood(self):
+            sr_j = self.replicator * self.s  # each column is the same value
+            sr_i = torch.transpose(sr_j, 1, 0)
+            si_minus_sj = sr_i - sr_j
+    
+            pr = - torch.sum(torch.sum(self.count_mat, dim=0) * torch.log(torch.exp(si_minus_sj) + 1))
+            self.pr = -pr / self.n_pairs
+    
+        def compute_likelihood_sparse(self):
+            pr = torch.tensor(0, dtype=self.dtype).to(self.device)
+            for item, cnt in self.data_cnt.items():
+                i, j, k = item
+                pr += - cnt * torch.log(torch.exp((self.s[j] - self.s[i])) + 1)
+            self.pr = -pr / self.n_pairs
+    
+        def compute_likelihood_np(self, s, beta):
+            sr_j = self.replicator.cpu().numpy() * s  # each column is the same value
+            sr_i = sr_j.T
+            si_minus_sj = sr_i - sr_j
+    
+            pr = - np.sum(np.sum(self.count_mat.cpu().numpy(), dim=0) * np.log(np.exp(si_minus_sj) + 1))
+            return -pr / self.n_pairs
+    
+        def post_process(self):
+            self.s.data -= torch.min(self.s.data)
+    '''
 
     def post_process(self):
         self.s -= np.min(self.s)
