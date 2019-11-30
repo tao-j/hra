@@ -2,21 +2,36 @@
 clear;
 addpath(genpath('./minFunc_2012'));
 addpath(genpath('./minConf'));
-data=dlmread('./data/readinglevel/all_pair.txt');
-% anno_quality=dlmread('./data/readinglevel/annotator_info.txt');
+data=dlmread('./data/countrypopulation/all_pair.txt');
+% anno_quality=dlmread('./data/country_population/annotator_info.txt');
 % anno_quality=anno_quality(:,3);
-doc_diff=dlmread('./data/readinglevel/doc_info.txt');
-doc_diff=doc_diff(:,2);
+doc_diff=dlmread('./data/countrypopulation/doc_info.txt');
+doc_diff=-doc_diff(:,1);
 
 n_anno=max(data(:,1));
 n_obj=max(max(data(:,2:3)));
 
 pair=cell(n_anno,1);
+rng('shuffle');
+keep_ratio = 1.00;
+out_f = fopen('./cp16/temp2.txt', 'a+');
 for i=1:n_anno
-    pair{i}=data(data(:,1)==i, 2:3);
+    dp=data(data(:,1)==i, 2:3);
+    [mlen ,~] = size(dp);
+    dp=dp(1:ceil(mlen*keep_ratio), :);
+    
+%     dp(dp(:,2) == 2, :) = [dp(dp(:,2) == 2, 2), dp(dp(:,2) == 2, 1)];
+%     z = dp(:,2) == 2;
+%     [k1, k2] = size(dp(dp(:,1) == 2, :));
+%     if k1 ~= 0
+%         fprintf("found")
+%     end
+    pair{i}=dp;
 end
 
-exps=20;
+% random trials
+
+exps=20; % allocated slots for experiments
 res = cell(exps, 1);
 legends_cell = cell(exps, 1);
 markers = {'+','o','*','.','x','s','d','^','v','>','<','p','h','+','o','*','.','x','s','d','^','v','>','<','p','h'};
@@ -25,7 +40,7 @@ res_idx = 1;
 
 %% set up initial parametmers 
 sc=1;
-para=struct('reg_0', 5., 'reg_s', 0, 'reg_alpha', 0,  'maxiter', 600, 's0', 0,...
+para=struct('reg_0', 10., 'reg_s', 0, 'reg_alpha', 0,  'maxiter', 600, 's0', 0,...
              'uni_weight', true, 'verbose', true, 'tol', 1e-5);
 % para.algo='CrowdBT';
 % para.algo='HRA-G';
@@ -33,8 +48,9 @@ para=struct('reg_0', 5., 'reg_s', 0, 'reg_alpha', 0,  'maxiter', 600, 's0', 0,..
 % para.algo='HRA-E';
 % para.opt_method='a->s+GD';
 % para.opt_method='s->a+newton+crowdbt';
-para.lr=5*10e-4;
-para.alpha_rate = 1.00;
+% para.lr=5*10e-4; % for reg_0 = 5, 10
+para.lr=5*10e-4; % for reg_0 = 0., 1.
+para.alpha_rate = 0.25;
 
 %% Random BTL-MLE
 name='Random BTL-MLE';
@@ -87,10 +103,7 @@ res{res_idx}={name, auc, kendall};
 res_idx=res_idx+1;
 
 
-% base_kendall=calc_kendall(doc_diff, base_s, eps);
-% plot(base_s, doc_diff,  'b*'); 
-
-%% BTL-MLE + HRA-G
+% %% BTL-MLE + HRA-G
 % name='BTL-MLE + HRA-G';
 % fprintf([name '\n']);
 % para.algo='HRA-G';
@@ -163,8 +176,9 @@ plot(obj(1:10:600), markers{res_idx});legend_cell{res_idx}=name;
 res_idx=res_idx+1;
 
 ones_crowd_bt_s=s;
-% 
-% 
+
+%%
+
 % %% staring random init
 % s_init=rand(n_obj,1);
 % alpha_init=ones(n_anno,1);
@@ -319,5 +333,6 @@ legend(legend_cell);
 % mean_ratio = mean(spread)
 
 for i=1:res_idx-1
+   fprintf(out_f, '%s,%f,%f\n', res{i}{1,1},res{i}{1,2},res{i}{1,3}); 
    fprintf('%s,%f,%f\n', res{i}{1,1},res{i}{1,2},res{i}{1,3}); 
 end

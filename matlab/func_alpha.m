@@ -1,4 +1,4 @@
-function [obj,grad, H]=func_alpha(alpha, s, para, pair)
+function [obj, grad, H]=func_alpha(alpha, s, para, pair)
   
     s0=getOpt(para, 's0', 0);
     reg_0=getOpt(para, 'reg_0', 0);
@@ -7,17 +7,17 @@ function [obj,grad, H]=func_alpha(alpha, s, para, pair)
     uni_weight=getOpt(para, 'uni_weight', true);
     algo=getOpt(para, 'algo', 'CrowdBT');
     
+    delta = 1e-19; % add a very small number when do division and log
+    
     n_anno=length(alpha);
     p=exp(s);
     p0=exp(s0);
     
     switch algo
-        case 'CrowdBT'
+        case {'CrowdBT', 'HRA-G'}
             obj=-reg_0*(sum(log(p0./(p0+p)))+sum(log(p./(p0+p))));
-        case 'HRA-G'
-            obj=-reg_0*(sum(log(p0./(p0+p)))+sum(log(p./(p0+p))));
-        case 'HRA-N'
-            obj=-reg_0*(sum(log(normcdf(s0-s))))+sum(log(normcdf(s-s0)));
+        case {'CrowdTCV', 'HRA-N'}
+            obj=-reg_0*(sum(log(normcdf(s0-s)))+sum(log(normcdf(s-s0))));
         case 'HRA-E'
             x = s - s0;
             pos = 1/4 * exp(-x).*(x+2);
@@ -49,6 +49,17 @@ function [obj,grad, H]=func_alpha(alpha, s, para, pair)
                 obj=obj-sum(log(alpha_tmp)-log(p(pair{k}(:,1))+p(pair{k}(:,2))))/s_k;        
                 grad(k)=-sum(diff_tmp./alpha_tmp)/s_k+reg_alpha*alpha(k);
                 h(k)=sum((diff_tmp./alpha_tmp).^2)/s_k+reg_alpha;
+
+            case 'CrowdTCV'
+                s_j = s(pair{k}(:,2));
+                s_i = s(pair{k}(:,1));
+                eta = alpha(k);
+                cdfij = normcdf((s_i - s_j)/sqrt(2));
+                cdfji = normcdf((s_j - s_i)/sqrt(2));
+                tmp = eta*cdfij+(1-eta)*cdfji;
+                obj=obj-sum(log(tmp))/s_k;        
+                grad(k)=-sum((cdfij-cdfji)./tmp)/s_k+reg_alpha*alpha(k);
+                h(k)=sum(((cdfij-cdfji)./tmp).^2)/s_k+reg_alpha;
                 
             case 'HRA-G'
                 s_j = s(pair{k}(:,2));
@@ -64,9 +75,9 @@ function [obj,grad, H]=func_alpha(alpha, s, para, pair)
                 s_i = s(pair{k}(:,1));
                 gamma = alpha(k);
                 temp_cdf = normcdf((s_i-s_j)*gamma);
-                obj = obj - sum(log(temp_cdf))/s_k;
-                grad(k)=sum(-1. ./ temp_cdf .* normpdf((s_i-s_j)*gamma) .* (s_i - s_j))/s_k + reg_alpha * gamma;
-
+                obj = obj - sum(log(temp_cdf + delta))/s_k;
+                grad(k)=sum(-1. ./ (temp_cdf + delta) .* normpdf((s_i-s_j)*gamma) .* (s_i - s_j))/s_k + reg_alpha * gamma;
+                
             case 'HRA-E'
                 s_j = s(pair{k}(:,2));
                 s_i = s(pair{k}(:,1));
