@@ -33,6 +33,10 @@ def atc(i, j, cM, M, eps, delta, ranked_s, original_s, gamma):
     return atc_y, bn, r
 
 
+# def elimuser_uneven_ucb(cM, n_t, s_t, eps, delta):
+
+
+
 def elimuser_oneshot(cM, n_t, s_t, eps, delta):
     if len(cM) == 1:
         return cM
@@ -50,6 +54,34 @@ def elimuser_oneshot(cM, n_t, s_t, eps, delta):
     return cM
 
 
+def best_user_act_rank(N, M, e2, d1, d2, s, gamma):
+    cM = range(0, M)
+    cmp_sort = CmpSort(s, delta)
+    # print(s)
+    rank_sample_complexity = 0
+    n_t = np.zeros(M)
+    s_t = 0
+    while not cmp_sort.done:
+        pair = cmp_sort.next_pair()
+        assert (0 <= pair[0] <= cmp_sort.n_intree)
+        assert (-1 <= pair[1] <= cmp_sort.n_intree)
+        if pair[1] == -1:
+            cmp_sort.feedback(1)
+        elif pair[1] == cmp_sort.n_intree:
+            cmp_sort.feedback(0)
+        else:
+            y, bn, r = atc(pair[0], pair[1], cM, M, cmp_sort.epsilon_atc_param, cmp_sort.delta_atc_param,
+                           cmp_sort.ranked_list, s, gamma)
+            s_t += r
+            n_t += bn
+            rank_sample_complexity += r * len(cM)
+            # if act:
+            cM = elimuser_oneshot(cM, n_t, s_t, 0.1, 0.3)
+            cmp_sort.feedback(y)
+
+    return rank_sample_complexity, cmp_sort.ranked_list
+
+
 def gamma_sweep(act, repeat, delta=0.1):
     random.seed(123)
     np.random.seed(123)
@@ -63,7 +95,7 @@ def gamma_sweep(act, repeat, delta=0.1):
         # thetas.append(np.power(1.2 / 0.8, i))
 
     N = 10
-    M = 1
+    M = 9
     # for gb in [0.25, 1., 2.5]:
     #     for gg in [2.5, 5, 10]:
     # for gb in [2.5]:
@@ -78,32 +110,10 @@ def gamma_sweep(act, repeat, delta=0.1):
             tts = []
             np.random.shuffle(s)
             for i in range(repeat):
-                cM = range(0, M)
-                cmp_sort = CmpSort(s, delta)
-                # print(s)
-                rank_sample_complexity = 0
-                n_t = np.zeros(M)
-                s_t = 0
-                while not cmp_sort.done:
-                    pair = cmp_sort.next_pair()
-                    assert(0 <= pair[0] <= cmp_sort.n_intree)
-                    assert (-1 <= pair[1] <= cmp_sort.n_intree)
-                    if pair[1] == -1:
-                        cmp_sort.feedback(1)
-                    elif pair[1] == cmp_sort.n_intree:
-                        cmp_sort.feedback(0)
-                    else:
-                        y, bn, r = atc(pair[0], pair[1], cM, M, cmp_sort.epsilon_atc_param, cmp_sort.delta_atc_param, cmp_sort.ranked_list, s, gamma)
-                        s_t += r
-                        n_t += bn
-                        rank_sample_complexity += r * len(cM)
-                        if act:
-                            cM = elimuser_oneshot(cM, n_t, s_t, 0.1, 0.3)
-                        cmp_sort.feedback(y)
-
+                rank_sample_complexity, ranked_list = best_user_act_rank(N, M, 0.1, delta, delta, s, gamma)
                 tts.append(rank_sample_complexity)
                 # print(len(cM))
-                a_ms = list(cmp_sort.ranked_list)
+                a_ms = list(ranked_list)
                 # print(a_ms)
                 a_sorted = sorted(s)
                 # print(a_sorted)
