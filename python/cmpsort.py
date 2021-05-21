@@ -12,7 +12,7 @@ class Node:
         self.count = 0
 
 
-class NoisyInsertion:  # rank from low to hight
+class CmpSort:  # rank from low to hight
     def __init__(self, S, delta):
         self.S = S
         self.n = len(self.S)
@@ -204,8 +204,6 @@ class NoisyInsertion:  # rank from low to hight
 
         self.next_state()
 
-        
-
 
 def cmp(i1, i2, ranked_a, original_a):
     return 1 if original_a[i1] > ranked_a[i2] else 0
@@ -225,7 +223,7 @@ if __name__ == "__main__":
             # a = aa
             a_sorted = sorted(a)
             print(a_sorted)
-            ms = NoisyInsertion(a, 0.01)
+            ms = CmpSort(a, 0.01)
             while not ms.done:
                 pair = ms.next_pair()
                 assert(0 <= pair[0] <= ms.n_intree)

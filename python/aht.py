@@ -1,5 +1,5 @@
 import numpy as np
-from python.noisyinsertion import *
+from python.cmpsort import *
 
 
 def atc(i, j, cM, M, eps, delta, ranked_s, original_s, gamma):
@@ -33,7 +33,7 @@ def atc(i, j, cM, M, eps, delta, ranked_s, original_s, gamma):
     return atc_y, bn, r
 
 
-def elimuser(cM, n_t, s_t, eps, delta):
+def elimuser_oneshot(cM, n_t, s_t, eps, delta):
     if len(cM) == 1:
         return cM
     s_max = int(np.ceil(2 / eps / eps * np.log(len(cM) / delta)))
@@ -50,11 +50,11 @@ def elimuser(cM, n_t, s_t, eps, delta):
     return cM
 
 
-
-def func_call(act, repeat, delta=0.1):
+def gamma_sweep(act, repeat, delta=0.1):
     random.seed(123)
     np.random.seed(123)
 
+    # data gen method may be mentioned in Ren et al.
     thetas = []
     for i in range(100):
         li = 0.9 * np.power(1.2 / 0.8, i)
@@ -79,37 +79,39 @@ def func_call(act, repeat, delta=0.1):
             np.random.shuffle(s)
             for i in range(repeat):
                 cM = range(0, M)
-                ms = NoisyInsertion(s, delta)
+                cmp_sort = CmpSort(s, delta)
                 # print(s)
-                total = 0
+                rank_sample_complexity = 0
                 n_t = np.zeros(M)
                 s_t = 0
-                while not ms.done:
-                    pair = ms.next_pair()
-                    assert(0 <= pair[0] <= ms.n_intree)
-                    assert (-1 <= pair[1] <= ms.n_intree)
+                while not cmp_sort.done:
+                    pair = cmp_sort.next_pair()
+                    assert(0 <= pair[0] <= cmp_sort.n_intree)
+                    assert (-1 <= pair[1] <= cmp_sort.n_intree)
                     if pair[1] == -1:
-                        ms.feedback(1)
-                    elif pair[1] == ms.n_intree:
-                        ms.feedback(0)
+                        cmp_sort.feedback(1)
+                    elif pair[1] == cmp_sort.n_intree:
+                        cmp_sort.feedback(0)
                     else:
-                        y, bn, r = atc(pair[0], pair[1], cM, M, ms.epsilon_atc_param, ms.delta_atc_param, ms.ranked_list, s, gamma)
+                        y, bn, r = atc(pair[0], pair[1], cM, M, cmp_sort.epsilon_atc_param, cmp_sort.delta_atc_param, cmp_sort.ranked_list, s, gamma)
                         s_t += r
                         n_t += bn
-                        total += r * len(cM)
+                        rank_sample_complexity += r * len(cM)
                         if act:
-                            cM = elimuser(cM, n_t, s_t, 0.1, 0.3)
-                        ms.feedback(y)
+                            cM = elimuser_oneshot(cM, n_t, s_t, 0.1, 0.3)
+                        cmp_sort.feedback(y)
 
-                tts.append(total)
+                tts.append(rank_sample_complexity)
                 # print(len(cM))
-                a_ms = list(ms.ranked_list)
+                a_ms = list(cmp_sort.ranked_list)
                 # print(a_ms)
                 a_sorted = sorted(s)
                 # print(a_sorted)
-                if len(cM) == 1:
-                    if not gamma[cM[0]] == gg:
-                        print(cM)
+
+                # if len(cM) == 1:
+                #     if not gamma[cM[0]] == gg:
+                #         print(cM)
+                #
                 assert (a_ms == a_sorted)
                 # print(cM)
             # print('&', int(np.average(tts)), " $\\pm$ ", int(np.std(tts)), end='\t\t'),
@@ -123,6 +125,6 @@ if __name__ == "__main__":
     import itertools
     repeat = 5
     for delta in np.arange(0.05, 1, 0.05):
-        func_call(act=0, repeat=repeat, delta=delta)
+        gamma_sweep(act=0, repeat=repeat, delta=delta)
         # print()
         # func_call(act=1, repeat=repeat, delta=delta)
