@@ -132,6 +132,7 @@ class CmpSort:  # rank from low to hight
     # if y == 1 then request(a, b) returns a > b
     def feedback(self, atc_y, total = 0):
         inserted = False
+        inserted_place = -1
 
         t = self.t_ati
         t_max = np.ceil(np.max([4 * self.h, 512 / 25 * np.log2(2 / self.delta_ati_param)]))
@@ -154,10 +155,11 @@ class CmpSort:  # rank from low to hight
             assert self.X.parent is not None
             if self.prev_atc_y and atc_y == 0:
                 self.X.count += 1
-                b_t = 0.5 * t + np.sqrt(t / 2 * np.log(np.pi * np.pi * t * t / 3 / self.delta_ati_param)) + 1
+                b_t = 0.5 * t + np.sqrt(t / 2 * np.log2(np.pi * np.pi * t * t / 3 / self.delta_ati_param)) + 1
                 if self.X.count > b_t:
                     inserted = True
                     self.ranked_list.insert(self.X.right, self.S[self.n_intree])
+                    inserted_place = self.X.right
                     self.n_intree += 1
             elif self.X.count > 0:
                 self.X.count -= 1
@@ -184,6 +186,7 @@ class CmpSort:  # rank from low to hight
                 for node in self.leaves:
                     if node.count > 1 + 5 / 16 * t_max:
                         inserted = True
+                        inserted_place = node.right
                         self.ranked_list.insert(node.right, self.S[self.n_intree])
                         self.n_intree += 1
                         break
@@ -194,7 +197,7 @@ class CmpSort:  # rank from low to hight
                     print(total)
                 if self.t_iir == self.n:
                     self.done = 1
-                    return
+                    return inserted, inserted_place
             else:
                 self.t_iai += 1
             self.t_ati = 1
@@ -203,6 +206,7 @@ class CmpSort:  # rank from low to hight
             self.t_ati += 1
 
         self.next_state()
+        return inserted, inserted_place
 
 
 def cmp(i1, i2, ranked_a, original_a):
